@@ -4,10 +4,12 @@ const { EOL } = require('os')
 const fs = require('fs')
 const debounce = require('lodash.debounce')
 
-let decorKeys = []
-let overviewConfig = {}
-let gutterConfig = {}
+let decorRanges = []
+let decorListeners = []
+
 let config = {}
+let gutterConfig = {}
+let overviewConfig = {}
 
 /**
  * @param {vscode.ExtensionContext} context
@@ -31,26 +33,26 @@ async function activate(context) {
         }, 200)
     )
 
-    // on close
-    vscode.workspace.onDidCloseTextDocument((doc) => {
-        resetDecors(context, doc.fileName)
-    })
-
     // on typing
     vscode.workspace.onDidChangeTextDocument(async (e) => {
         if (e) {
             let editor = vscode.window.activeTextEditor
+            let doc = e.document
 
-            if (editor) {
-                let doc = editor.document
-
-                if (doc) {
+            if (editor.document == doc) {
+                // init
+                if (!getDecorRangesByName()) {
                     await initDecorator(context)
+                }
 
+                // full undo
+                if (!doc.isDirty && doc.version > 0) {
+                    await resetDecors()
+                } else {
                     let content = e.contentChanges
 
                     if (content.length) {
-                        await updateGutter(context, content, editor)
+                        await listenToChanges(context, content, editor)
                     }
                 }
             }
@@ -58,85 +60,193 @@ async function activate(context) {
     })
 }
 
-/**
- * no need for delete but lets keep it for now
- */
-async function updateGutter(context, changes, editor) {
-    let data = await getDecorByKey()
-    let add = [...data.ranges.add]
-    let del = [...data.ranges.del]
+// init
+function initDecorator(context) {
+    return new Promise((resolve) => {
+        let fileName = getCurrentFileName()
 
-    for (const change of changes) {
-        let text = change.text
-        let line = change.range.start.line
-        let range = new vscode.Range(
-            line,
-            0,
-            line,
-            0
-        )
+        decorListeners.push({
+            name: fileName,
+            lines: []
+        })
 
-        // highlight line on text
-        if (text) {
-            add.push(range)
-        }
+        decorRanges.push({
+            name: fileName,
+            addKey: createDecorator(context, 'add'),
+            delKey: createDecorator(context, 'del'),
+            ranges: {
+                add: [],
+                del: []
+            }
+        })
 
-        // highlight next line on enter
-        if (text.endsWith(EOL)) {
-            range = new vscode.Range(
-                line + 1,
-                0,
-                line + 1,
-                0
-            )
-            add.push(range)
-        }
-    }
-
-    // unify ranges to lines only "no characters change needed"
-    // validate to avoid errors
-    // unify again to remove new character changes
-    let addList = getUniq(validateRange(getUniq(add), editor))
-    let delList = getUniq(validateRange(getUniq(del), editor))
-
-    updateCurrentDecorItem({
-        add: addList,
-        del: delList
+        resolve()
     })
-
-    await editor.setDecorations(data.addDecorKey, addList)
-    await editor.setDecorations(data.delDecorKey, delList)
-
-    return
 }
 
-function validateRange(ranges, editor) {
-    return ranges.map((range) => {
-        return editor.document.validateRange(range)
+function createDecorator(context, type) {
+    return vscode.window.createTextEditorDecorationType({
+        gutterIconPath: context.asAbsolutePath(`./img/${type}.svg`),
+        gutterIconSize: gutterConfig.size,
+        overviewRulerColor: hexToRgba(overviewConfig[type], overviewConfig.opacity),
+        overviewRulerLane: 2,
+        isWholeLine: config.wholeLine
+    })
+}
+
+/**
+ * no need for delete but lets keep it for now
+ *
+ * working :
+ * =========
+ * undo
+ * full-undo
+ * multi cursor on same line
+ */
+function updateGutter(context, before, editor) {
+    return new Promise((resolve) => {
+        let after = invertSelections(editor.selections)
+        let data = getDecorRangesByName()
+        let add = [...data.ranges.add]
+        let del = [...data.ranges.del]
+
+        for (const item of before) {
+            let text = item.text
+            let line = item.range.end.line
+            let range = new vscode.Range(
+                line,
+                0,
+                line,
+                0
+            )
+
+            if (!text && !text.includes(EOL) && haveRange(add, item.range)) { // for undo
+                add.splice(add.indexOf(range), 1)
+            } else { // add new
+                add.push(range)
+            }
+        }
+
+        let addList = getUniq(add)
+        let delList = getUniq(del)
+        let lines = addList.map((item) => {
+            return item.start.line
+        })
+
+        updateCurrentDecorListener(lines)
+        updateCurrentDecorRanges({
+            add: addList,
+            del: delList
+        })
+
+        editor.setDecorations(data.addKey, addList)
+        editor.setDecorations(data.delKey, delList)
+
+        resolve()
     })
 }
 
 async function reApplyDecors(context, editor) {
-    let data = await getDecorByKey(editor.document.fileName)
+    let data = await getDecorRangesByName(editor.document.fileName)
 
     if (data) {
-        await editor.setDecorations(data.addDecorKey, data.ranges.add)
-        await editor.setDecorations(data.delDecorKey, data.ranges.del)
+        await editor.setDecorations(data.addKey, data.ranges.add)
+        await editor.setDecorations(data.delKey, data.ranges.del)
     }
 
     return
 }
 
-function getUniq(arr) {
-    return arr.reduce((acc, current) => {
-        const x = acc.find((item) => item.start.line === current.start.line)
+// ranges
+function getDecorRangesByName(name = getCurrentFileName()) {
+    return decorRanges.find((e) => e.name == name)
+}
 
-        if (!x) {
-            return acc.concat([current])
-        } else {
-            return acc
+function resetDecors(name = getCurrentFileName()) {
+    return new Promise((resolve) => {
+        if (decorListeners.length) {
+            for (let i = 0; i < decorListeners.length; i++) {
+                if (decorListeners[i].name == name) {
+                    decorListeners.splice(i, 1)
+                    break
+                }
+            }
+
+            for (let i = 0; i < decorRanges.length; i++) {
+                let item = decorRanges[i]
+
+                if (item.name == name) {
+                    item.addKey.dispose()
+                    item.delKey.dispose()
+                    decorRanges.splice(i, 1)
+                    break
+                }
+            }
+
+            resolve()
         }
-    }, [])
+    })
+}
+
+function updateCurrentDecorRanges(val, name = getCurrentFileName()) {
+    for (let i = 0; i < decorRanges.length; i++) {
+        let item = decorRanges[i]
+
+        if (item.name == name) {
+            item.ranges = val
+            break
+        }
+    }
+}
+
+function haveRange(list, range) {
+    return list.find((item) => {
+        return item.start.line === range.start.line
+    })
+}
+
+function invertSelections(arr) {
+    return arr.sort((a, b) => { // make sure its sorted correctly
+        if (a.start.line > b.start.line) return 1
+
+        if (b.start.line > a.start.line) return -1
+
+        return 0
+    }).reverse()
+}
+
+// listeners
+async function listenToChanges(context, changes, editor) {
+    let item = getListenerByKey()
+
+    for (const change of changes) {
+        if (item && !item.lines.includes(change.range.end.line)) {
+            await updateGutter(context, [change], editor)
+        }
+    }
+}
+
+function getListenerByKey(name = getCurrentFileName()) {
+    return decorListeners.find((e) => e.name == name)
+}
+
+function updateCurrentDecorListener(val, name = getCurrentFileName()) {
+    for (let i = 0; i < decorListeners.length; i++) {
+        if (decorListeners[i].name == name) {
+            decorListeners[i].lines = val
+            break
+        }
+    }
+}
+
+// config
+function readConfig(context) {
+    config = vscode.workspace.getConfiguration('show-unsaved-changes')
+    overviewConfig = config.styles.overview
+    gutterConfig = config.styles.gutter
+
+    changeIconColor(context, 'add', gutterConfig.add)
+    changeIconColor(context, 'del', gutterConfig.del)
 }
 
 function changeIconColor(context, type, color) {
@@ -147,65 +257,21 @@ function changeIconColor(context, type, color) {
     )
 }
 
-async function initDecorator(context) {
-    let key = await getDecorByKey()
-
-    if (!key) {
-        decorKeys.push({
-            name: getCurrentFileName(),
-            addDecorKey: vscode.window.createTextEditorDecorationType({
-                gutterIconPath: context.asAbsolutePath('./img/add.svg'),
-                gutterIconSize: gutterConfig.size,
-                overviewRulerColor: hexToRgba(overviewConfig.add, overviewConfig.opacity),
-                overviewRulerLane: 2,
-                isWholeLine: config.wholeLine
-            }),
-            delDecorKey: vscode.window.createTextEditorDecorationType({
-                gutterIconPath: context.asAbsolutePath('./img/del.svg'),
-                gutterIconSize: gutterConfig.size,
-                overviewRulerColor: hexToRgba(overviewConfig.del, overviewConfig.opacity),
-                overviewRulerLane: 2,
-                isWholeLine: config.wholeLine
-            }),
-            ranges: {
-                add: [],
-                del: []
-            }
-        })
-    }
-}
-
-function getDecorByKey(name = getCurrentFileName()) {
-    return decorKeys.find((e) => e.name == name)
-}
-
+// util
 function getCurrentFileName() {
     return vscode.window.activeTextEditor.document.fileName
 }
 
-async function resetDecors(context, name = getCurrentFileName()) {
-    return updateCurrentDecorItem({
-        add: [],
-        del: []
-    }, name)
-}
+function getUniq(arr) {
+    return arr.reduce((acc, current) => {
+        const x = haveRange(acc, current)
 
-function updateCurrentDecorItem(val, name = getCurrentFileName()) {
-    for (let i = 0; i < decorKeys.length; i++) {
-        if (decorKeys[i].name == name) {
-            decorKeys[i].ranges = val
-            break
+        if (!x) {
+            return acc.concat([current])
+        } else {
+            return acc
         }
-    }
-}
-
-function readConfig(context) {
-    config = vscode.workspace.getConfiguration('show-unsaved-changes')
-    overviewConfig = config.styles.overview
-    gutterConfig = config.styles.gutter
-
-    changeIconColor(context, 'add', gutterConfig.add)
-    changeIconColor(context, 'del', gutterConfig.del)
+    }, [])
 }
 
 exports.activate = activate
