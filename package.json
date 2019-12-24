@@ -41,6 +41,6 @@
         "vscode-test": "^1.2.2"
     },
     "dependencies": {
-        "lodash.uniq": "^4.5.0"
+        "lodash.debounce": "^4.0.8"
     }
 }

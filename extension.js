@@ -1,8 +1,8 @@
 const vscode = require('vscode')
 const { EOL } = require('os')
-const uniq = require('lodash.uniq')
+const debounce = require('lodash.debounce')
 
-let current = null
+let decorKeys = []
 let config
 
 /**
@@ -12,40 +12,24 @@ async function activate(context) {
 
     readConfig()
 
-    let editor = vscode.window.activeTextEditor
-
-    if (editor) {
-        current = editor.document.fileName
-        initDecorator(context)
-    }
-
     vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('show-unsaved-changes')) {
             readConfig()
         }
     })
 
-    // on window change
-    vscode.window.onDidChangeWindowState((e) => {
-        if (e.focused) {
-            current = vscode.window.activeTextEditor.document.fileName
-        }
-    })
+    // on new document
+    vscode.window.onDidChangeVisibleTextEditors(
+        debounce(async function (editors) {
+            for (const editor of editors) {
+                await reapplyDecors(context, editor)
+            }
+        }, 200)
+    )
 
-    // on file change/close
-    vscode.window.onDidChangeActiveTextEditor((editor) => {
-        if (editor) {
-            current = editor.document.fileName
-        } else {
-            resetDecors(context)
-        }
-    })
-
-    // on file save
-    vscode.workspace.onWillSaveTextDocument(({ document }) => {
-        if (document.fileName == current) {
-            resetDecors(context)
-        }
+    // on close
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+        resetDecors(context, doc.fileName)
     })
 
     // on typing
@@ -57,8 +41,6 @@ async function activate(context) {
                 let doc = editor.document
 
                 if (doc) {
-                    current = doc.fileName
-
                     await initDecorator(context)
 
                     let content = e.contentChanges
@@ -72,47 +54,84 @@ async function activate(context) {
     })
 }
 
+/**
+ * no need for delete but lets keep it for now
+ */
 async function updateGutter(context, changes, editor) {
-    let data = await getFileDecors(context)
-    let add = []
-    let del = []
+    let data = await getDecorByKey()
+    let add = [...data.ranges.add]
+    let del = [...data.ranges.del]
 
     for (const change of changes) {
         let text = change.text
+        let line = change.range.start.line
+        let range = new vscode.Range(
+            line,
+            0,
+            line,
+            0
+        )
 
-        if (text || text.includes(EOL)) {
-            add.push(change.range)
-        } else {
-            add.splice(add.indexOf(change.range), 1)
-            del.push(change.range)
+        // highlight line on text
+        if (text) {
+            add.push(range)
+        }
+
+        // highlight next line on enter
+        if (text.endsWith(EOL)) {
+            range = new vscode.Range(
+                line + 1,
+                0,
+                line + 1,
+                0
+            )
+            add.push(range)
         }
     }
 
-    let addlist = uniq(add.concat(data.ranges.add))
-    let dellist = uniq(del.concat(data.ranges.del))
+    let addList = getUniq(add)
+    let delList = getUniq(del)
 
-    await updateFileDecors(context, {
-        ranges: {
-            add: addlist,
-            del: dellist
-        },
-        addDecorKey: data.addDecorKey,
-        delDecorKey: data.delDecorKey
+    updateCurrentDecorItem({
+        add: addList,
+        del: delList
     })
 
-    await editor.setDecorations(data.addDecorKey, addlist)
-    await editor.setDecorations(data.delDecorKey, dellist)
+    await editor.setDecorations(data.addDecorKey, addList)
+    await editor.setDecorations(data.delDecorKey, delList)
+
+    return
+}
+
+async function reapplyDecors(context, editor) {
+    let data = await getDecorByKey(editor.document.fileName)
+
+    if (data) {
+        await editor.setDecorations(data.addDecorKey, data.ranges.add)
+        await editor.setDecorations(data.delDecorKey, data.ranges.del)
+    }
+
+    return
+}
+
+function getUniq(arr) {
+    return arr.reduce((acc, current) => {
+        const x = acc.find((item) => item.start.line === current.start.line)
+
+        if (!x) {
+            return acc.concat([current])
+        } else {
+            return acc
+        }
+    }, [])
 }
 
 async function initDecorator(context) {
-    let data = await getFileDecors(context)
+    let key = await getDecorByKey()
 
-    if (!data.addDecorKey) {
-        return updateFileDecors(context, {
-            ranges: {
-                add: [],
-                del: []
-            },
+    if (!key) {
+        decorKeys.push({
+            name: getCurrentFileName(),
             addDecorKey: vscode.window.createTextEditorDecorationType({
                 gutterIconPath: context.asAbsolutePath('./img/add.svg'),
                 gutterIconSize: config.iconSize,
@@ -124,41 +143,37 @@ async function initDecorator(context) {
                 gutterIconSize: config.iconSize,
                 overviewRulerColor: 'rgba(163,21,21,0.5)',
                 overviewRulerLane: 2
-            })
+            }),
+            ranges: {
+                add: [],
+                del: []
+            }
         })
     }
 }
 
-function resetDecors(context) {
-    updateFileDecors(context, {
-        ranges: {
-            add: [],
-            del: []
-        },
-        addDecorKey: null,
-        delDecorKey: null
-    })
+function getDecorByKey(name = getCurrentFileName()) {
+    return decorKeys.find((e) => e.name == name)
 }
 
-async function getFileDecors(context) {
-    return context.workspaceState.get(
-        current || vscode.window.activeTextEditor.document.fileName,
-        {
-            ranges: {
-                add: [],
-                del: []
-            },
-            addDecorKey: null,
-            delDecorKey: null
+function getCurrentFileName() {
+    return vscode.window.activeTextEditor.document.fileName
+}
+
+async function resetDecors(context, name = getCurrentFileName()) {
+    return updateCurrentDecorItem({
+        add: [],
+        del: []
+    }, name)
+}
+
+function updateCurrentDecorItem(val, name = getCurrentFileName()) {
+    for (let i = 0; i < decorKeys.length; i++) {
+        if (decorKeys[i].name == name) {
+            decorKeys[i].ranges = val
+            break
         }
-    )
-}
-
-async function updateFileDecors(context, val) {
-    return context.workspaceState.update(
-        current || vscode.window.activeTextEditor.document.fileName,
-        val
-    )
+    }
 }
 
 function readConfig() {
