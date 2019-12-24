@@ -17,11 +17,28 @@
     "contributes": {
         "configuration": {
             "title": "Show Unsaved Changes",
+            "type": "object",
             "properties": {
-                "show-unsaved-changes.iconSize": {
-                    "type": "string",
-                    "default": "auto",
-                    "description": "gutter icon size"
+                "show-unsaved-changes.wholeLine": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "highlight multi-line block"
+                },
+                "show-unsaved-changes.styles": {
+                    "type": "object",
+                    "default": {
+                        "overview": {
+                            "opacity": 0.5,
+                            "add": "#2faf64",
+                            "del": "#a31515"
+                        },
+                        "gutter": {
+                            "size": "auto",
+                            "add": "#9a22df",
+                            "del": "#efdc0b"
+                        }
+                    },
+                    "description": "decoration styles"
                 }
             }
         }
@@ -41,6 +58,7 @@
         "vscode-test": "^1.2.2"
     },
     "dependencies": {
+        "hex-to-rgba": "^2.0.1",
         "lodash.debounce": "^4.0.8"
     }
 }

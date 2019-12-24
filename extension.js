@@ -1,20 +1,24 @@
 const vscode = require('vscode')
+const hexToRgba = require('hex-to-rgba')
 const { EOL } = require('os')
+const fs = require('fs')
 const debounce = require('lodash.debounce')
 
 let decorKeys = []
-let config
+let overviewConfig = {}
+let gutterConfig = {}
+let config = {}
 
 /**
  * @param {vscode.ExtensionContext} context
  */
 async function activate(context) {
 
-    readConfig()
+    readConfig(context)
 
     vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('show-unsaved-changes')) {
-            readConfig()
+            readConfig(context)
         }
     })
 
@@ -22,7 +26,7 @@ async function activate(context) {
     vscode.window.onDidChangeVisibleTextEditors(
         debounce(async function (editors) {
             for (const editor of editors) {
-                await reapplyDecors(context, editor)
+                await reApplyDecors(context, editor)
             }
         }, 200)
     )
@@ -89,8 +93,11 @@ async function updateGutter(context, changes, editor) {
         }
     }
 
-    let addList = getUniq(add)
-    let delList = getUniq(del)
+    // unify ranges to lines only "no characters change needed"
+    // validate to avoid errors
+    // unify again to remove new character changes
+    let addList = getUniq(validateRange(getUniq(add), editor))
+    let delList = getUniq(validateRange(getUniq(del), editor))
 
     updateCurrentDecorItem({
         add: addList,
@@ -103,7 +110,13 @@ async function updateGutter(context, changes, editor) {
     return
 }
 
-async function reapplyDecors(context, editor) {
+function validateRange(ranges, editor) {
+    return ranges.map((range) => {
+        return editor.document.validateRange(range)
+    })
+}
+
+async function reApplyDecors(context, editor) {
     let data = await getDecorByKey(editor.document.fileName)
 
     if (data) {
@@ -126,6 +139,14 @@ function getUniq(arr) {
     }, [])
 }
 
+function changeIconColor(context, type, color) {
+    return fs.writeFile(
+        context.asAbsolutePath(`./img/${type}.svg`),
+        `<svg width="10" height="40" viewPort="0 0 10 40" xmlns="http://www.w3.org/2000/svg"><polygon points="5,0 10,0 10,40 5,40" fill="${color}"/></svg>`,
+        () => { }
+    )
+}
+
 async function initDecorator(context) {
     let key = await getDecorByKey()
 
@@ -134,15 +155,17 @@ async function initDecorator(context) {
             name: getCurrentFileName(),
             addDecorKey: vscode.window.createTextEditorDecorationType({
                 gutterIconPath: context.asAbsolutePath('./img/add.svg'),
-                gutterIconSize: config.iconSize,
-                overviewRulerColor: 'rgba(47,175,100,0.5)',
-                overviewRulerLane: 2
+                gutterIconSize: gutterConfig.size,
+                overviewRulerColor: hexToRgba(overviewConfig.add, overviewConfig.opacity),
+                overviewRulerLane: 2,
+                isWholeLine: config.wholeLine
             }),
             delDecorKey: vscode.window.createTextEditorDecorationType({
                 gutterIconPath: context.asAbsolutePath('./img/del.svg'),
-                gutterIconSize: config.iconSize,
-                overviewRulerColor: 'rgba(163,21,21,0.5)',
-                overviewRulerLane: 2
+                gutterIconSize: gutterConfig.size,
+                overviewRulerColor: hexToRgba(overviewConfig.del, overviewConfig.opacity),
+                overviewRulerLane: 2,
+                isWholeLine: config.wholeLine
             }),
             ranges: {
                 add: [],
@@ -176,8 +199,13 @@ function updateCurrentDecorItem(val, name = getCurrentFileName()) {
     }
 }
 
-function readConfig() {
-    return config = vscode.workspace.getConfiguration('show-unsaved-changes')
+function readConfig(context) {
+    config = vscode.workspace.getConfiguration('show-unsaved-changes')
+    overviewConfig = config.styles.overview
+    gutterConfig = config.styles.gutter
+
+    changeIconColor(context, 'add', gutterConfig.add)
+    changeIconColor(context, 'del', gutterConfig.del)
 }
 
 exports.activate = activate
