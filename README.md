@@ -1,3 +1,11 @@
 # Show Unsaved Changes
 
-- show unsaved lines in file
+### working
+
+- undo
+- full-undo
+- multi cursor on same line
+
+### not working
+
+- multi cursor new line

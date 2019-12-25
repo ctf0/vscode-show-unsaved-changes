@@ -5,7 +5,6 @@ const fs = require('fs')
 const debounce = require('lodash.debounce')
 
 let decorRanges = []
-let decorListeners = []
 
 let config = {}
 let gutterConfig = {}
@@ -34,41 +33,50 @@ async function activate(context) {
     )
 
     // on typing
-    vscode.workspace.onDidChangeTextDocument(async (e) => {
-        if (e) {
-            let editor = vscode.window.activeTextEditor
-            let doc = e.document
+    vscode.workspace.onDidChangeTextDocument(
+        debounce(async function (e) {
+            if (e) {
+                let editor = vscode.window.activeTextEditor
+                let doc = e.document
 
-            if (editor.document == doc) {
-                // init
-                if (!getDecorRangesByName()) {
-                    await initDecorator(context)
-                }
+                if (editor && editor.document == doc) {
+                    // init
+                    if (!getDecorRangesByName()) {
+                        await initDecorator(context)
+                    }
 
-                // full undo
-                if (!doc.isDirty && doc.version > 0) {
-                    await resetDecors()
-                } else {
-                    let content = e.contentChanges
+                    // full undo
+                    // untitled 'isDirty' is different from normal files
+                    if (!doc.isDirty && doc.version > 0 && !doc.isUntitled) {
+                        await resetDecors()
+                    } else {
+                        let content = e.contentChanges
 
-                    if (content.length) {
-                        await listenToChanges(context, content, editor)
+                        if (content.length) {
+                            if (editor.selections.length > 1) {
+                                let selections = editor.selections.map((item) => {
+                                    return {
+                                        range: new vscode.Range(item.start, item.end),
+                                        text: content[0].text
+                                    }
+                                })
+
+                                await updateGutter(context, selections, editor, false)
+                            } else {
+                                await updateGutter(context, content, editor)
+                            }
+                        }
                     }
                 }
             }
-        }
-    })
+        }, 50)
+    )
 }
 
 // init
 function initDecorator(context) {
     return new Promise((resolve) => {
         let fileName = getCurrentFileName()
-
-        decorListeners.push({
-            name: fileName,
-            lines: []
-        })
 
         decorRanges.push({
             name: fileName,
@@ -77,7 +85,8 @@ function initDecorator(context) {
             ranges: {
                 add: [],
                 del: []
-            }
+            },
+            lineIndex: []
         })
 
         resolve()
@@ -96,51 +105,61 @@ function createDecorator(context, type) {
 
 /**
  * no need for delete but lets keep it for now
- *
- * working :
- * =========
- * undo
- * full-undo
- * multi cursor on same line
  */
-function updateGutter(context, before, editor) {
+function updateGutter(context, selections, editor, addExtraLine = true) {
+    let changes = sortSelections(selections)
+
     return new Promise((resolve) => {
-        let after = invertSelections(editor.selections)
         let data = getDecorRangesByName()
-        let add = [...data.ranges.add]
-        let del = [...data.ranges.del]
+        let add = data.ranges.add
+        let del = data.ranges.del
+        let newChanges = false
+        for (const change of changes) {
+            let line = change.range.end.line
+            let text = change.text
 
-        for (const item of before) {
-            let text = item.text
-            let line = item.range.end.line
-            let range = new vscode.Range(
-                line,
-                0,
-                line,
-                0
-            )
+            if (addExtraLine && text.includes(EOL)) { // hl new line
+                newChanges = true
+                add.push(new vscode.Range(
+                    line + 1,
+                    0,
+                    line + 1,
+                    0
+                ))
+            }
 
-            if (!text && !text.includes(EOL) && haveRange(add, item.range)) { // for undo
-                add.splice(add.indexOf(range), 1)
-            } else { // add new
-                add.push(range)
+            if (!data.lineIndex.includes(line)) {
+                newChanges = true
+                let range = new vscode.Range(
+                    line,
+                    0,
+                    line,
+                    0
+                )
+
+                if (!text && !text.includes(EOL) && haveRange(add, change.range)) { // for undo
+                    add.splice(add.indexOf(range), 1)
+                } else {
+                    add.push(range)
+                }
             }
         }
 
-        let addList = getUniq(add)
-        let delList = getUniq(del)
-        let lines = addList.map((item) => {
-            return item.start.line
-        })
+        if (newChanges) {
+            let addList = getUniq(add)
+            let delList = getUniq(del)
 
-        updateCurrentDecorListener(lines)
-        updateCurrentDecorRanges({
-            add: addList,
-            del: delList
-        })
+            updateCurrentDecorRanges({
+                ranges: {
+                    add: addList,
+                    del: delList
+                },
+                lineIndex: [...new Set(data.lineIndex.concat(addList.map((item) => item.start.line)))]
+            })
 
-        editor.setDecorations(data.addKey, addList)
-        editor.setDecorations(data.delKey, delList)
+            editor.setDecorations(data.addKey, addList)
+            editor.setDecorations(data.delKey, delList)
+        }
 
         resolve()
     })
@@ -164,27 +183,18 @@ function getDecorRangesByName(name = getCurrentFileName()) {
 
 function resetDecors(name = getCurrentFileName()) {
     return new Promise((resolve) => {
-        if (decorListeners.length) {
-            for (let i = 0; i < decorListeners.length; i++) {
-                if (decorListeners[i].name == name) {
-                    decorListeners.splice(i, 1)
-                    break
-                }
+        for (let i = 0; i < decorRanges.length; i++) {
+            let item = decorRanges[i]
+
+            if (item.name == name) {
+                item.addKey.dispose()
+                item.delKey.dispose()
+                decorRanges.splice(i, 1)
+                break
             }
-
-            for (let i = 0; i < decorRanges.length; i++) {
-                let item = decorRanges[i]
-
-                if (item.name == name) {
-                    item.addKey.dispose()
-                    item.delKey.dispose()
-                    decorRanges.splice(i, 1)
-                    break
-                }
-            }
-
-            resolve()
         }
+
+        resolve()
     })
 }
 
@@ -193,50 +203,14 @@ function updateCurrentDecorRanges(val, name = getCurrentFileName()) {
         let item = decorRanges[i]
 
         if (item.name == name) {
-            item.ranges = val
+            item = Object.assign(item, val)
             break
         }
     }
 }
 
 function haveRange(list, range) {
-    return list.find((item) => {
-        return item.start.line === range.start.line
-    })
-}
-
-function invertSelections(arr) {
-    return arr.sort((a, b) => { // make sure its sorted correctly
-        if (a.start.line > b.start.line) return 1
-
-        if (b.start.line > a.start.line) return -1
-
-        return 0
-    }).reverse()
-}
-
-// listeners
-async function listenToChanges(context, changes, editor) {
-    let item = getListenerByKey()
-
-    for (const change of changes) {
-        if (item && !item.lines.includes(change.range.end.line)) {
-            await updateGutter(context, [change], editor)
-        }
-    }
-}
-
-function getListenerByKey(name = getCurrentFileName()) {
-    return decorListeners.find((e) => e.name == name)
-}
-
-function updateCurrentDecorListener(val, name = getCurrentFileName()) {
-    for (let i = 0; i < decorListeners.length; i++) {
-        if (decorListeners[i].name == name) {
-            decorListeners[i].lines = val
-            break
-        }
-    }
+    return list.find((item) => item.start.line === range.start.line)
 }
 
 // config
@@ -272,6 +246,15 @@ function getUniq(arr) {
             return acc
         }
     }, [])
+}
+
+function sortSelections(arr) {
+    return arr.sort((a, b) => { // make sure its sorted correctly
+        if (a.range.start.line > b.range.start.line) return 1
+        if (b.range.start.line > a.range.start.line) return -1
+
+        return 0
+    })
 }
 
 exports.activate = activate
