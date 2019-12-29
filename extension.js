@@ -5,7 +5,6 @@ const fs = require('fs')
 const debounce = require('lodash.debounce')
 
 let decorRanges = []
-
 let config = {}
 let gutterConfig = {}
 let overviewConfig = {}
@@ -114,6 +113,7 @@ function updateGutter(context, selections, editor, addExtraLine = true) {
         let add = data.ranges.add
         let del = data.ranges.del
         let newChanges = false
+
         for (const change of changes) {
             let line = change.range.end.line
             let text = change.text
