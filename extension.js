@@ -22,6 +22,15 @@ async function activate(context) {
         }
     })
 
+    // on close
+    vscode.workspace.onDidCloseTextDocument(
+        debounce(async function (doc) {
+            if (doc) {
+                await resetDecors(doc.fileName)
+            }
+        }, 100)
+    )
+
     // on new document
     vscode.window.onDidChangeVisibleTextEditors(
         debounce(async function (editors) {
@@ -32,44 +41,42 @@ async function activate(context) {
     )
 
     // on typing
-    vscode.workspace.onDidChangeTextDocument(
-        debounce(async function (e) {
-            if (e) {
-                let editor = vscode.window.activeTextEditor
-                let doc = e.document
+    vscode.workspace.onDidChangeTextDocument(async (e) => {
+        if (e) {
+            let editor = vscode.window.activeTextEditor
+            let doc = e.document
 
-                if (editor && editor.document == doc) {
-                    // init
-                    if (!getDecorRangesByName()) {
-                        await initDecorator(context)
-                    }
+            if (editor && editor.document == doc) {
+                // init
+                if (!getDecorRangesByName()) {
+                    await initDecorator(context)
+                }
 
-                    // full undo
-                    // untitled 'isDirty' is different from normal files
-                    if (!doc.isDirty && doc.version > 0 && !doc.isUntitled) {
-                        await resetDecors()
-                    } else {
-                        let content = e.contentChanges
+                // full undo
+                // untitled 'isDirty' is different from normal files
+                if (!doc.isDirty && doc.version > 0 && !doc.isUntitled) {
+                    await resetDecors()
+                } else {
+                    let content = e.contentChanges
 
-                        if (content.length) {
-                            if (editor.selections.length > 1) {
-                                let selections = editor.selections.map((item) => {
-                                    return {
-                                        range: new vscode.Range(item.start, item.end),
-                                        text: content[0].text
-                                    }
-                                })
+                    if (content.length) {
+                        let text = content[0].text
 
-                                await updateGutter(context, selections, editor, false)
-                            } else {
-                                await updateGutter(context, content, editor)
-                            }
+                        if (!text.includes(EOL)) {
+                            let selections = editor.selections.map((item) => {
+                                return {
+                                    range: new vscode.Range(item.start, item.end),
+                                    text: text
+                                }
+                            })
+
+                            await updateGutter(context, selections, editor)
                         }
                     }
                 }
             }
-        }, 50)
-    )
+        }
+    })
 }
 
 // init
@@ -105,8 +112,8 @@ function createDecorator(context, type) {
 /**
  * no need for delete but lets keep it for now
  */
-function updateGutter(context, selections, editor, addExtraLine = true) {
-    let changes = sortSelections(selections)
+function updateGutter(context, selections, editor) {
+    let changes = selections.lenght > 1 ? sortSelections(selections) : selections
 
     return new Promise((resolve) => {
         let data = getDecorRangesByName()
@@ -118,16 +125,6 @@ function updateGutter(context, selections, editor, addExtraLine = true) {
             let line = change.range.end.line
             let text = change.text
 
-            if (addExtraLine && text.includes(EOL)) { // hl new line
-                newChanges = true
-                add.push(new vscode.Range(
-                    line + 1,
-                    0,
-                    line + 1,
-                    0
-                ))
-            }
-
             if (!data.lineIndex.includes(line)) {
                 newChanges = true
                 let range = new vscode.Range(
@@ -137,7 +134,7 @@ function updateGutter(context, selections, editor, addExtraLine = true) {
                     0
                 )
 
-                if (!text && !text.includes(EOL) && haveRange(add, change.range)) { // for undo
+                if (!text && haveRange(add, change.range)) { // for undo
                     add.splice(add.indexOf(range), 1)
                 } else {
                     add.push(range)
@@ -154,7 +151,11 @@ function updateGutter(context, selections, editor, addExtraLine = true) {
                     add: addList,
                     del: delList
                 },
-                lineIndex: [...new Set(data.lineIndex.concat(addList.map((item) => item.start.line)))]
+                lineIndex: [...new Set(
+                    data.lineIndex.concat(
+                        addList.map((item) => item.start.line)
+                    )
+                )]
             })
 
             editor.setDecorations(data.addKey, addList)

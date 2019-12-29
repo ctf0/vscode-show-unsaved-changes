@@ -1,11 +1,10 @@
-# Show Unsaved Changes
+### Features
 
-### working
+- show line changes in the gutter
+- remove the gutter indicator on undo
+- remove all the gutter indicators on full-undo
 
-- undo
-- full-undo
-- multi cursor on same line
+### Notes
 
-### not working
-
-- multi cursor new line
+- changes shows up for any character other than the new line character `\n`
+- indicators are removed on file `save/close`
