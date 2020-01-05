@@ -35,7 +35,7 @@ async function activate(context) {
     vscode.window.onDidChangeVisibleTextEditors(
         debounce(async function (editors) {
             for (const editor of editors) {
-                await reApplyDecors(context, editor)
+                await reApplyDecors(editor)
             }
         }, 200)
     )
@@ -60,18 +60,7 @@ async function activate(context) {
                     let content = e.contentChanges
 
                     if (content.length) {
-                        let text = content[0].text
-
-                        if (!text.includes(EOL)) {
-                            let selections = editor.selections.map((item) => {
-                                return {
-                                    range: new vscode.Range(item.start, item.end),
-                                    text: text
-                                }
-                            })
-
-                            await updateGutter(context, selections, editor)
-                        }
+                        await updateGutter(content, editor)
                     }
                 }
             }
@@ -91,8 +80,7 @@ function initDecorator(context) {
             ranges: {
                 add: [],
                 del: []
-            },
-            lineIndex: []
+            }
         })
 
         resolve()
@@ -112,61 +100,37 @@ function createDecorator(context, type) {
 /**
  * no need for delete but lets keep it for now
  */
-function updateGutter(context, selections, editor) {
-    let changes = selections.lenght > 1 ? sortSelections(selections) : selections
-
+function updateGutter(selections, editor) {
     return new Promise((resolve) => {
         let data = getDecorRangesByName()
         let add = data.ranges.add
         let del = data.ranges.del
-        let newChanges = false
 
-        for (const change of changes) {
-            let line = change.range.end.line
-            let text = change.text
+        for (const change of selections) {
+            let { range, text } = change
 
-            if (!data.lineIndex.includes(line)) {
-                newChanges = true
-                let range = new vscode.Range(
-                    line,
-                    0,
-                    line,
-                    0
-                )
-
-                if (!text && haveRange(add, change.range)) { // for undo
-                    add.splice(add.indexOf(range), 1)
-                } else {
-                    add.push(range)
-                }
+            if (!text) {
+                add.splice(add.indexOf(range), 1)
+            } else {
+                add.push(range)
             }
         }
 
-        if (newChanges) {
-            let addList = getUniq(add)
-            let delList = getUniq(del)
+        updateCurrentDecorRanges({
+            ranges: {
+                add: add,
+                del: del
+            }
+        })
 
-            updateCurrentDecorRanges({
-                ranges: {
-                    add: addList,
-                    del: delList
-                },
-                lineIndex: [...new Set(
-                    data.lineIndex.concat(
-                        addList.map((item) => item.start.line)
-                    )
-                )]
-            })
-
-            editor.setDecorations(data.addKey, addList)
-            editor.setDecorations(data.delKey, delList)
-        }
+        editor.setDecorations(data.addKey, add)
+        editor.setDecorations(data.delKey, del)
 
         resolve()
     })
 }
 
-async function reApplyDecors(context, editor) {
+async function reApplyDecors(editor) {
     let data = await getDecorRangesByName(editor.document.fileName)
 
     if (data) {
@@ -211,7 +175,10 @@ function updateCurrentDecorRanges(val, name = getCurrentFileName()) {
 }
 
 function haveRange(list, range) {
-    return list.find((item) => item.start.line === range.start.line)
+    return list.find((item) => {
+        return item.start.line === range.start.line &&
+            item.end.line === range.end.line
+    })
 }
 
 // config
@@ -235,27 +202,6 @@ function changeIconColor(context, type, color) {
 // util
 function getCurrentFileName() {
     return vscode.window.activeTextEditor.document.fileName
-}
-
-function getUniq(arr) {
-    return arr.reduce((acc, current) => {
-        const x = haveRange(acc, current)
-
-        if (!x) {
-            return acc.concat([current])
-        } else {
-            return acc
-        }
-    }, [])
-}
-
-function sortSelections(arr) {
-    return arr.sort((a, b) => { // make sure its sorted correctly
-        if (a.range.start.line > b.range.start.line) return 1
-        if (b.range.start.line > a.range.start.line) return -1
-
-        return 0
-    })
 }
 
 exports.activate = activate
