@@ -1,9 +1,10 @@
 {
     "name": "show-unsaved-changes",
     "displayName": "Show Unsaved Changes",
-    "description": "",
+    "description": "show unsaved changes for document in gutter (kinda like git)",
     "version": "0.0.1",
     "publisher": "ctf0",
+    "repository": "https://github.com/ctf0/vscode-show-unsaved-changes",
     "engines": {
         "vscode": "^1.41.0"
     },
@@ -21,8 +22,13 @@
             "properties": {
                 "show-unsaved-changes.wholeLine": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "description": "highlight multi-line block"
+                },
+                "show-unsaved-changes.disableWhenScm": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "disable the extension when (.gitignore) is found in the workspace"
                 },
                 "show-unsaved-changes.styles": {
                     "type": "object",
@@ -58,6 +64,7 @@
         "vscode-test": "^1.2.2"
     },
     "dependencies": {
+        "diff-compare": "^1.0.2",
         "hex-to-rgba": "^2.0.1",
         "lodash.debounce": "^4.0.8"
     }
