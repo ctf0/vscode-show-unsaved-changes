@@ -30,22 +30,25 @@ async function activate(context) {
 
     if (!wsHasGit) {
         // on close
-        vscode.workspace.onDidCloseTextDocument(
-            debounce(async function (doc) {
-                if (doc) {
-                    await resetDecors(doc.fileName)
-                }
-            }, 100)
-        )
+        vscode.workspace.onDidCloseTextDocument(async (doc) => {
+            if (doc && doc.isClosed) {
+                await resetDecors(doc.fileName)
+            }
+        })
+
+        // on save
+        vscode.workspace.onDidSaveTextDocument(async (doc) => {
+            if (doc) {
+                await resetDecors(doc.fileName)
+            }
+        })
 
         // on new document
-        vscode.window.onDidChangeVisibleTextEditors(
-            debounce(async function (editors) {
-                for (const editor of editors) {
-                    await reApplyDecors(editor)
-                }
-            }, 500)
-        )
+        vscode.window.onDidChangeVisibleTextEditors(async (editors) => {
+            for (const editor of editors) {
+                await reApplyDecors(editor)
+            }
+        })
 
         // comments
         commentController = vscode.comments.createCommentController('show-unsaved-changes', 'Show Unsaved Changes')
@@ -63,7 +66,7 @@ async function activate(context) {
                         await initDecorator(context, document)
                     }
 
-                    // full undo / save
+                    // full undo
                     // untitled 'isDirty' is different from normal files
                     if (!document.isDirty && document.version > 0 && !document.isUntitled) {
                         await resetDecors()
@@ -120,32 +123,47 @@ let updateGutter = debounce(function (editor, document) {
                 compare: document.getText()
             })
 
-            diff.compare.forEach((item, i) => {
-                let range = new vscode.Range(i, 0, i, 0)
+            // filter deleted lines
+            if (threads.length) {
+                let len = diff.compare.length
+                threads.forEach((th) => {
+                    let str = th.label
+                    let line = str.substr(str.indexOf('#') + 1)
 
-                if (item.type == 'delete' || item.type == 'replace') {
-                    del.push(range)
+                    if (line > len) {
+                        th.dispose()
+                    }
+                })
+            }
 
-                    let isDelete = item.type == 'delete'
-                    let msg = (isDelete ? diff.base[i].value : item.value) || '\\n'
-                    let found = threads.findIndex((item) => item.range.isEqual(range) && item.uri == uri)
+            diff.compare.map((item, i) => {
+                let { type, value } = item
+
+                if (type && type != 'equal') {
+                    let range = new vscode.Range(i, 0, i, 0)
+                    let isDelete = type == 'delete'
+                    let tIndex = threads.findIndex((el) => el.range.isEqual(range) && el.uri == uri)
+                    let msg = (isDelete ? diff.base[i].value : value) || '...'
                     let comment = {
-                        "author": { name: item.type },
+                        "author": { name: type },
                         "body": new vscode.MarkdownString().appendCodeblock(msg, languageId),
-                        "mode": vscode.CommentMode.Preview
+                        "mode": 0
                     }
 
-                    if (found > -1) {
-                        threads[found].comments = [...threads[found].comments, comment]
-                    } else {
-                        let thread = commentController.createCommentThread(uri, range, [comment])
-                        thread.label = `Show Unsaved Changes: line #${i + 1}`
+                    // comments
+                    if (type != 'insert') {
+                        if (tIndex > -1) {
+                            threads[tIndex].comments = getUnique([...threads[tIndex].comments, comment])
+                        } else {
+                            let thread = commentController.createCommentThread(uri, range, [comment])
+                            thread.label = `Show Unsaved Changes: line #${i + 1}`
 
-                        threads.push(thread)
+                            threads.push(thread)
+                        }
                     }
 
-                } else if (item.type == 'insert') {
-                    add.push(range)
+                    // ranges
+                    isDelete ? del.push(range) : add.push(range)
                 }
             })
 
@@ -165,7 +183,7 @@ let updateGutter = debounce(function (editor, document) {
             reject()
         }
     })
-}, 2 * 1000, { trailing: true, leading: true })
+}, 1 * 1000, { trailing: true, leading: true })
 
 async function reApplyDecors(editor) {
     let data = await getDecorRangesByName(editor.document.fileName)
@@ -248,6 +266,18 @@ async function checkForGitPresense() {
     let files = await vscode.workspace.findFiles('.gitignore')
 
     return !!files.length
+}
+
+function getUnique(arr) {
+    return arr.reduce((acc, current) => {
+        const x = acc.find((item) => item.author.name === current.author.name)
+
+        if (!x) {
+            return acc.concat([current])
+        } else {
+            return acc
+        }
+    }, [])
 }
 
 exports.activate = activate
