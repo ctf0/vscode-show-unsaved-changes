@@ -54,7 +54,7 @@ async function activate(context) {
                     let { document } = editor
 
                     if (editor && document == e.document) {
-                        let { isDirty, version, isUntitled, fileName } = document
+                        let { isDirty, version, isUntitled } = document
 
                         // full undo
                         if (!isDirty && version > 1 && !isUntitled && contentNotChanged(document)) {
