@@ -5,6 +5,7 @@ const debounce = require('lodash.debounce')
 const Diff = require('diff-compare')
 
 let decorRanges = []
+let visibleTextEditors = []
 let config = {}
 let gutterConfig = {}
 let overviewConfig = {}
@@ -15,76 +16,68 @@ let commentController
  */
 async function activate(context) {
     await readConfig(context)
+    await checkForGitPresense(context)
 
     vscode.workspace.onDidChangeConfiguration(async (e) => {
         if (e.affectsConfiguration('show-unsaved-changes')) {
             await readConfig(context)
+            await checkForGitPresense(context)
         }
     })
 
-    let wsHasGit = false
-
-    if (config.disableWhenScm) {
-        wsHasGit = await checkForGitPresense()
+    // on start
+    for (const editor of vscode.window.visibleTextEditors) {
+        await initDecorator(editor, context)
     }
 
-    if (!wsHasGit) {
-        // on close
-        vscode.workspace.onDidCloseTextDocument(async (doc) => {
-            if (doc && doc.isClosed) {
-                await resetDecors(doc.fileName)
-            }
-        })
+    // on new document
+    vscode.window.onDidChangeVisibleTextEditors(async (editors) => {
+        for (const editor of editors) {
+            await reApplyDecors(editor, context)
+        }
+    })
 
-        // on save
-        vscode.workspace.onDidSaveTextDocument(async (doc) => {
-            if (doc) {
-                await resetDecors(doc.fileName)
-            }
-        })
+    // on close
+    vscode.workspace.onDidCloseTextDocument(async (doc) => {
+        if (doc && doc.isClosed && visibleTextEditors.includes(doc.fileName)) {
+            await resetDecors(doc.fileName)
+        }
+    })
 
-        // on new document
-        vscode.window.onDidChangeVisibleTextEditors(async (editors) => {
-            for (const editor of editors) {
-                await reApplyDecors(editor)
-            }
-        })
-
-        // comments
-        commentController = vscode.comments.createCommentController('show-unsaved-changes', 'Show Unsaved Changes')
-        context.subscriptions.push(commentController)
-
-        // on typing
-        vscode.workspace.onDidChangeTextDocument(async (e) => {
+    // on typing
+    vscode.workspace.onDidChangeTextDocument(
+        debounce(async (e) => {
             if (e) {
                 let editor = vscode.window.activeTextEditor
-                let { document } = e
 
-                if (editor && editor.document == document) {
-                    // init
-                    if (!getDecorRangesByName()) {
-                        await initDecorator(context, document)
-                    }
+                if (editor) {
+                    let { document } = editor
 
-                    // full undo
-                    // untitled 'isDirty' is different from normal files
-                    if (!document.isDirty && document.version > 0 && !document.isUntitled) {
-                        await resetDecors()
-                    } else {
-                        await updateGutter(editor, document)
+                    if (editor && document == e.document) {
+                        let { isDirty, version, isUntitled, fileName } = document
+
+                        // full undo
+                        if (!isDirty && version > 1 && !isUntitled && contentNotChanged(document)) {
+                            await resetDecors()
+                            await initDecorator(editor, context)
+                        } else {
+                            await updateGutter(editor)
+                        }
                     }
                 }
             }
-        })
-    }
+        }, 250)
+    )
 }
 
+/* Decors ------------------------------------------------------------------- */
 // init
-function initDecorator(context, document) {
-    return new Promise((resolve) => {
-        let fileName = getCurrentFileName()
+function initDecorator({ document }, context) {
+    visibleTextEditors.push(document.fileName)
 
-        decorRanges.push({
+    return new Promise((resolve) => {
+        let { fileName } = document
+        let obj = {
             name: fileName,
             original: document.getText(),
             addKey: createDecorator(context, 'add'),
@@ -94,9 +87,11 @@ function initDecorator(context, document) {
                 del: []
             },
             commentThreads: []
-        })
+        }
 
-        resolve()
+        decorRanges.push(obj)
+
+        resolve(obj)
     })
 }
 
@@ -110,62 +105,54 @@ function createDecorator(context, type) {
     })
 }
 
-let updateGutter = debounce(function (editor, document) {
+function updateGutter(editor) {
     return new Promise((resolve, reject) => {
         try {
+            let { document } = editor
             let data = getDecorRangesByName()
+            let threads = data.commentThreads.forEach((one) => one.dispose()) || []
             let add = []
             let del = []
-            let threads = data.commentThreads
-            let { languageId, uri } = document
+
             let diff = Diff.build({
                 base: data.original,
                 compare: document.getText()
             })
 
-            // filter deleted lines
-            if (threads.length) {
-                let len = diff.compare.length
-                threads.forEach((th) => {
-                    let str = th.label
-                    let line = str.substr(str.indexOf('#') + 1)
-
-                    if (line > len) {
-                        th.dispose()
-                    }
-                })
-            }
-
-            diff.compare.map((item, i) => {
+            for (let i = 0; i < diff.compare.length; i++) {
+                const item = diff.compare[i]
+                let base = diff.base[i]
                 let { type, value } = item
 
+                // insert, replace, delete
                 if (type && type != 'equal') {
                     let range = new vscode.Range(i, 0, i, 0)
                     let isDelete = type == 'delete'
-                    let tIndex = threads.findIndex((el) => el.range.isEqual(range) && el.uri == uri)
-                    let msg = (isDelete ? diff.base[i].value : value) || '...'
-                    let comment = {
-                        "author": { name: type },
-                        "body": new vscode.MarkdownString().appendCodeblock(msg, languageId),
-                        "mode": 0
-                    }
 
                     // comments
-                    if (type != 'insert') {
-                        if (tIndex > -1) {
-                            threads[tIndex].comments = getUnique([...threads[tIndex].comments, comment])
-                        } else {
-                            let thread = commentController.createCommentThread(uri, range, [comment])
-                            thread.label = `Show Unsaved Changes: line #${i + 1}`
-
-                            threads.push(thread)
+                    if (
+                        commentController &&
+                        (isDelete || (type == 'replace' && base.value && !value))
+                    ) {
+                        let { languageId, uri, fileName } = document
+                        let name = fileName.substr(fileName.lastIndexOf('/') + 1)
+                        let msg = base.value || '...'
+                        let comment = {
+                            "author": { name: 'delete' },
+                            "body": new vscode.MarkdownString().appendCodeblock(msg, languageId),
+                            "mode": 1
                         }
+
+                        let thread = commentController.createCommentThread(uri, range, [comment])
+                        thread.label = `Show Unsaved Changes: ${name} #${i + 1}`
+
+                        threads.push(thread)
                     }
 
                     // ranges
                     isDelete ? del.push(range) : add.push(range)
                 }
-            })
+            }
 
             updateCurrentDecorRanges({
                 ranges: {
@@ -179,13 +166,13 @@ let updateGutter = debounce(function (editor, document) {
             editor.setDecorations(data.delKey, del)
 
             resolve()
-        } catch (error) {
+        } catch ({ message }) {
             reject()
         }
     })
-}, 1 * 1000, { trailing: true, leading: true })
+}
 
-async function reApplyDecors(editor) {
+async function reApplyDecors(editor, context) {
     let data = await getDecorRangesByName(editor.document.fileName)
 
     if (data) {
@@ -195,12 +182,9 @@ async function reApplyDecors(editor) {
 
             resolve()
         })
+    } else {
+        await initDecorator(editor, context)
     }
-}
-
-// ranges
-function getDecorRangesByName(name = getCurrentFileName()) {
-    return decorRanges.find((e) => e.name == name)
 }
 
 function resetDecors(name = getCurrentFileName()) {
@@ -217,8 +201,15 @@ function resetDecors(name = getCurrentFileName()) {
             }
         }
 
+        visibleTextEditors.splice(visibleTextEditors.indexOf(name), 1)
+
         resolve()
     })
+}
+
+/* Ranges ------------------------------------------------------------------- */
+function getDecorRangesByName(name = getCurrentFileName()) {
+    return decorRanges.find((e) => e.name == name)
 }
 
 function updateCurrentDecorRanges(val, name = getCurrentFileName()) {
@@ -232,7 +223,7 @@ function updateCurrentDecorRanges(val, name = getCurrentFileName()) {
     }
 }
 
-// config
+/* Config ------------------------------------------------------------------- */
 async function readConfig(context) {
     config = await vscode.workspace.getConfiguration('show-unsaved-changes')
     overviewConfig = config.styles.overview
@@ -254,7 +245,7 @@ function changeIconColor(context, type, color) {
     })
 }
 
-// util
+/* Util --------------------------------------------------------------------- */
 function getCurrentFileName() {
     try {
         return vscode.window.activeTextEditor.document.fileName
@@ -262,27 +253,33 @@ function getCurrentFileName() {
     }
 }
 
-async function checkForGitPresense() {
-    let files = await vscode.workspace.findFiles('.gitignore')
+async function checkForGitPresense(context) {
+    let check = false
 
-    return !!files.length
-}
+    if (config.scmDisable) {
+        let files = await vscode.workspace.findFiles('.gitignore', null, 1)
 
-function getUnique(arr) {
-    return arr.reduce((acc, current) => {
-        const x = acc.find((item) => item.author.name === current.author.name)
+        check = !!files.length
+    }
 
-        if (!x) {
-            return acc.concat([current])
-        } else {
-            return acc
+    if (check) {
+        if (commentController) {
+            commentController.dispose()
         }
-    }, [])
+    } else {
+        commentController = vscode.comments.createCommentController('show-unsaved-changes', 'Show Unsaved Changes')
+        context.subscriptions.push(commentController)
+    }
 }
 
-exports.activate = activate
+function contentNotChanged(document) {
+    let data = getDecorRangesByName(document.fileName)
+
+    return data && data.original == document.getText()
+}
 
 function deactivate() { }
+
 module.exports = {
     activate,
     deactivate

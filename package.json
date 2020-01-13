@@ -25,16 +25,16 @@
                     "default": true,
                     "description": "highlight multi-line block"
                 },
-                "show-unsaved-changes.disableWhenScm": {
+                "show-unsaved-changes.scmDisable": {
                     "type": "boolean",
-                    "default": false,
-                    "description": "disable the extension when (.gitignore) is found in the workspace"
+                    "default": true,
+                    "description": "disable gutter comments when (.gitignore) is found in root of the workspace"
                 },
                 "show-unsaved-changes.styles": {
                     "type": "object",
                     "default": {
                         "overview": {
-                            "opacity": 0.5,
+                            "opacity": 0.75,
                             "add": "#2faf64",
                             "del": "#a31515"
                         },
