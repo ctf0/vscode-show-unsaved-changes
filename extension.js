@@ -57,7 +57,10 @@ async function activate(context) {
                         let { isDirty, version, isUntitled } = document
 
                         // full undo
-                        if (!isDirty && version > 1 && !isUntitled && contentNotChanged(document)) {
+                        if (
+                            !isDirty && version > 1 && !isUntitled &&
+                            (contentNotChanged(document) || config.clearOnSave)
+                        ) {
                             await resetDecors()
                             await initDecorator(editor, context)
                         } else {
