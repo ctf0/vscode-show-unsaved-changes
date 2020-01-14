@@ -5,6 +5,7 @@ const debounce = require('lodash.debounce')
 const Diff = require('diff-compare')
 
 let decorRanges = []
+let docContent = []
 let visibleTextEditors = []
 let config = {}
 let gutterConfig = {}
@@ -41,6 +42,7 @@ async function activate(context) {
     vscode.workspace.onDidCloseTextDocument(async (doc) => {
         if (doc && doc.isClosed && visibleTextEditors.includes(doc.fileName)) {
             await resetDecors(doc.fileName)
+            removeDocOriginalContentFor(doc.fileName)
         }
     })
 
@@ -82,7 +84,6 @@ function initDecorator({ document }, context) {
         let { fileName } = document
         let obj = {
             name: fileName,
-            original: document.getText(),
             addKey: createDecorator(context, 'add'),
             delKey: createDecorator(context, 'del'),
             ranges: {
@@ -91,6 +92,11 @@ function initDecorator({ document }, context) {
             },
             commentThreads: []
         }
+
+        docContent.push({
+            name: fileName,
+            content: document.getText()
+        })
 
         decorRanges.push(obj)
 
@@ -212,7 +218,13 @@ function resetDecors(name = getCurrentFileName()) {
 
 /* Ranges ------------------------------------------------------------------- */
 function getDecorRangesByName(name = getCurrentFileName()) {
-    return decorRanges.find((e) => e.name == name)
+    let found = decorRanges.find((e) => e.name == name)
+
+    if (found) {
+        return Object.assign(found, { original: getDocOriginalContentFor(name).content })
+    }
+
+    return false
 }
 
 function updateCurrentDecorRanges(val, name = getCurrentFileName()) {
@@ -248,6 +260,23 @@ function changeIconColor(context, type, color) {
     })
 }
 
+/* Content ------------------------------------------------------------------ */
+function getDocOriginalContentFor(name) {
+    return docContent.find((item) => item.name == name)
+}
+
+function removeDocOriginalContentFor(name) {
+    let i = docContent.findIndex((e) => e.name == name)
+
+    return docContent.splice(i, 1)
+}
+
+function contentNotChanged(document) {
+    let data = getDocOriginalContentFor(document.fileName)
+
+    return data && data.content == document.getText()
+}
+
 /* Util --------------------------------------------------------------------- */
 function getCurrentFileName() {
     try {
@@ -273,12 +302,6 @@ async function checkForGitPresense(context) {
         commentController = vscode.comments.createCommentController('show-unsaved-changes', 'Show Unsaved Changes')
         context.subscriptions.push(commentController)
     }
-}
-
-function contentNotChanged(document) {
-    let data = getDecorRangesByName(document.fileName)
-
-    return data && data.original == document.getText()
 }
 
 function deactivate() { }
