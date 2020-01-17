@@ -47,31 +47,33 @@ async function activate(context) {
     })
 
     // on typing
-    vscode.workspace.onDidChangeTextDocument(
-        debounce(async (e) => {
-            if (e) {
-                let editor = vscode.window.activeTextEditor
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument(
+            debounce(async (e) => {
+                if (e) {
+                    let editor = vscode.window.activeTextEditor
 
-                if (editor) {
-                    let { document } = editor
+                    if (editor) {
+                        let { document } = editor
 
-                    if (editor && document == e.document) {
-                        let { isDirty, version, isUntitled } = document
+                        if (editor && document == e.document) {
+                            let { isDirty, version, isUntitled } = document
 
-                        // full undo
-                        if (
-                            !isDirty && version > 1 && !isUntitled &&
-                            (contentNotChanged(document) || config.clearOnSave)
-                        ) {
-                            await resetDecors()
-                            await initDecorator(editor, context)
-                        } else {
-                            await updateGutter(editor)
+                            // full undo
+                            if (
+                                !isDirty && version > 1 && !isUntitled &&
+                                (contentNotChanged(document) || config.clearOnSave)
+                            ) {
+                                await resetDecors()
+                                await initDecorator(editor, context)
+                            } else {
+                                await updateGutter(editor)
+                            }
                         }
                     }
                 }
-            }
-        }, 250)
+            }, 250)
+        )
     )
 }
 
