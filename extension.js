@@ -107,13 +107,23 @@ function initDecorator({ document }, context) {
 }
 
 function createDecorator(context, type) {
-    return vscode.window.createTextEditorDecorationType({
-        gutterIconPath: context.asAbsolutePath(`./img/${type}.svg`),
-        gutterIconSize: gutterConfig.size,
-        overviewRulerColor: hexToRgba(overviewConfig[type], overviewConfig.opacity),
-        overviewRulerLane: 2,
-        isWholeLine: config.wholeLine
-    })
+    let obj = { isWholeLine: config.wholeLine }
+
+    if (config.showInGutter) {
+        obj = Object.assign(obj, {
+            gutterIconPath: context.asAbsolutePath(`./img/${type}.svg`),
+            gutterIconSize: gutterConfig.size
+        })
+    }
+
+    if (config.showInOverView) {
+        obj = Object.assign(obj, {
+            overviewRulerColor: hexToRgba(overviewConfig[type], overviewConfig.opacity),
+            overviewRulerLane: 2
+        })
+    }
+
+    return vscode.window.createTextEditorDecorationType(obj)
 }
 
 function updateGutter(editor) {
