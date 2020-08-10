@@ -56,7 +56,7 @@ async function activate(context) {
                     if (editor) {
                         let { document } = editor
 
-                        if (editor && document == e.document) {
+                        if (document == e.document) {
                             let { isDirty, version, isUntitled } = document
 
                             // full undo
@@ -222,6 +222,7 @@ function resetDecors(name = getCurrentFileName()) {
             }
         }
 
+        docContent.splice(docContent.indexOf(name), 1)
         visibleTextEditors.splice(visibleTextEditors.indexOf(name), 1)
 
         resolve()

@@ -15,3 +15,7 @@
 ## 0.0.4
 
 - extra configs
+
+## 0.0.5
+
+- fix not correctly reseting cached files
