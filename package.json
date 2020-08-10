@@ -2,7 +2,7 @@
     "name": "show-unsaved-changes",
     "displayName": "Show Unsaved Changes",
     "description": "show unsaved changes for document in gutter (kinda like git)",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "publisher": "ctf0",
     "repository": "https://github.com/ctf0/vscode-show-unsaved-changes",
     "engines": {
@@ -32,7 +32,7 @@
                 },
                 "show-unsaved-changes.clearOnSave": {
                     "type": "boolean",
-                    "default": true,
+                    "default": false,
                     "description": "clear decorations on file save"
                 },
                 "show-unsaved-changes.showInGutter": {
