@@ -54,14 +54,14 @@ async function activate(context) {
                     let editor = vscode.window.activeTextEditor
 
                     if (editor) {
-                        let { document } = editor
+                        let {document} = editor
 
                         if (document == e.document) {
-                            let { isDirty, version, isUntitled } = document
+                            let {isDirty, version, isUntitled} = document
 
                             // full undo
                             if (
-                                !isDirty && version > 1 && !isUntitled &&
+                                !isDirty && version > 1 && !isUntitled && 
                                 (contentNotChanged(document) || config.clearOnSave)
                             ) {
                                 await resetDecors()
@@ -79,13 +79,13 @@ async function activate(context) {
 
 /* Decors ------------------------------------------------------------------- */
 // init
-function initDecorator({ document }, context) {
+function initDecorator({document}, context) {
     visibleTextEditors.push(document.fileName)
 
     return new Promise((resolve) => {
-        let { fileName } = document
+        let {fileName} = document
         let obj = {
-            name: fileName,
+            name  : fileName,
             addKey: createDecorator(context, 'add'),
             delKey: createDecorator(context, 'del'),
             ranges: {
@@ -96,7 +96,7 @@ function initDecorator({ document }, context) {
         }
 
         docContent.push({
-            name: fileName,
+            name   : fileName,
             content: document.getText()
         })
 
@@ -107,7 +107,7 @@ function initDecorator({ document }, context) {
 }
 
 function createDecorator(context, type) {
-    let obj = { isWholeLine: config.wholeLine }
+    let obj = {isWholeLine: config.wholeLine}
 
     if (config.showInGutter) {
         obj = Object.assign(obj, {
@@ -119,7 +119,7 @@ function createDecorator(context, type) {
     if (config.showInOverView) {
         obj = Object.assign(obj, {
             overviewRulerColor: hexToRgba(overviewConfig[type], overviewConfig.opacity),
-            overviewRulerLane: 2
+            overviewRulerLane : 2
         })
     }
 
@@ -129,21 +129,21 @@ function createDecorator(context, type) {
 function updateGutter(editor) {
     return new Promise((resolve, reject) => {
         try {
-            let { document } = editor
+            let {document} = editor
             let data = getDecorRangesByName()
             let threads = data.commentThreads.forEach((one) => one.dispose()) || []
             let add = []
             let del = []
 
             let diff = Diff.build({
-                base: data.original,
+                base   : data.original,
                 compare: document.getText()
             })
 
             for (let i = 0; i < diff.compare.length; i++) {
                 const item = diff.compare[i]
                 let base = diff.base[i]
-                let { type, value } = item
+                let {type, value} = item
 
                 // insert, replace, delete
                 if (type && type != 'equal') {
@@ -152,16 +152,16 @@ function updateGutter(editor) {
 
                     // comments
                     if (
-                        commentController &&
+                        commentController && 
                         (isDelete || (type == 'replace' && base.value && !value))
                     ) {
-                        let { languageId, uri, fileName } = document
+                        let {languageId, uri, fileName} = document
                         let name = fileName.substr(fileName.lastIndexOf('/') + 1)
                         let msg = base.value || '...'
                         let comment = {
-                            "author": { name: 'delete' },
-                            "body": new vscode.MarkdownString().appendCodeblock(msg, languageId),
-                            "mode": 1
+                            'author': {name: 'delete'},
+                            'body'  : new vscode.MarkdownString().appendCodeblock(msg, languageId),
+                            'mode'  : 1
                         }
 
                         let thread = commentController.createCommentThread(uri, range, [comment])
@@ -187,7 +187,7 @@ function updateGutter(editor) {
             editor.setDecorations(data.delKey, del)
 
             resolve()
-        } catch ({ message }) {
+        } catch ({message}) {
             reject()
         }
     })
@@ -234,7 +234,7 @@ function getDecorRangesByName(name = getCurrentFileName()) {
     let found = decorRanges.find((e) => e.name == name)
 
     if (found) {
-        return Object.assign(found, { original: getDocOriginalContentFor(name).content })
+        return Object.assign(found, {original: getDocOriginalContentFor(name)?.content})
     }
 
     return false

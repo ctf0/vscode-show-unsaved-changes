@@ -19,3 +19,7 @@
 ## 0.0.5
 
 - fix not correctly reseting cached files
+
+## 0.0.7
+
+- fix trying to get content on file close
