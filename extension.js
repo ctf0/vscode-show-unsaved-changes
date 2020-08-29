@@ -232,9 +232,10 @@ function resetDecors(name = getCurrentFileName()) {
 /* Ranges ------------------------------------------------------------------- */
 function getDecorRangesByName(name = getCurrentFileName()) {
     let found = decorRanges.find((e) => e.name == name)
+    let item = getDocOriginalContentFor(name)
 
-    if (found) {
-        return Object.assign(found, {original: getDocOriginalContentFor(name)?.content})
+    if (found && item) {
+        return Object.assign(found, {original: item.content})
     }
 
     return false
