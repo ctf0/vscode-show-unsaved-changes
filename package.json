@@ -2,11 +2,11 @@
     "name": "show-unsaved-changes",
     "displayName": "Show Unsaved Changes",
     "description": "show unsaved changes for document in gutter (kinda like git)",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "publisher": "ctf0",
     "repository": "https://github.com/ctf0/vscode-show-unsaved-changes",
     "engines": {
-        "vscode": "^1.48.0"
+        "vscode": "^1.51.0"
     },
     "categories": [
         "Other"
@@ -20,32 +20,32 @@
             "title": "Show Unsaved Changes",
             "type": "object",
             "properties": {
-                "show-unsaved-changes.wholeLine": {
+                "showUnsavedChanges.wholeLine": {
                     "type": "boolean",
                     "default": true,
                     "description": "highlight multi-line block"
                 },
-                "show-unsaved-changes.scmDisable": {
+                "showUnsavedChanges.scmDisable": {
                     "type": "boolean",
                     "default": true,
                     "description": "disable gutter comments when (.gitignore) is found in root of the workspace"
                 },
-                "show-unsaved-changes.clearOnSave": {
+                "showUnsavedChanges.clearOnSave": {
                     "type": "boolean",
                     "default": false,
                     "description": "clear decorations on file save"
                 },
-                "show-unsaved-changes.showInGutter": {
+                "showUnsavedChanges.showInGutter": {
                     "type": "boolean",
                     "default": true,
                     "description": "show changes in gutter"
                 },
-                "show-unsaved-changes.showInOverView": {
+                "showUnsavedChanges.showInOverView": {
                     "type": "boolean",
                     "default": true,
                     "description": "show changes in overview"
                 },
-                "show-unsaved-changes.styles": {
+                "showUnsavedChanges.styles": {
                     "type": "object",
                     "default": {
                         "overview": {
@@ -64,19 +64,16 @@
             }
         }
     },
-    "scripts": {
-        "test": "node ./test/runTest.js"
-    },
     "devDependencies": {
         "@types/glob": "^7.1.3",
-        "@types/mocha": "^8.0.3",
-        "@types/node": "^14.6.0",
-        "@types/vscode": "^1.48.0",
-        "eslint": "^7.7.0",
+        "@types/mocha": "^8.0.4",
+        "@types/node": "^14.14.10",
+        "@types/vscode": "^1.51.0",
+        "eslint": "^7.15.0",
         "glob": "^7.1.6",
-        "mocha": "^8.1.2",
-        "typescript": "^4.0.2",
-        "vscode-test": "^1.4.0"
+        "mocha": "^8.2.1",
+        "typescript": "^4.1.2",
+        "vscode-test": "^1.4.1"
     },
     "dependencies": {
         "diff-compare": "^1.0.2",

@@ -23,3 +23,7 @@
 ## 0.0.7
 
 - fix trying to get content on file close
+
+## 0.0.9
+
+- fix package settings name

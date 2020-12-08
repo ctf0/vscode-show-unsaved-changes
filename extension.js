@@ -3,6 +3,7 @@ const hexToRgba = require('hex-to-rgba')
 const fs = require('fs')
 const debounce = require('lodash.debounce')
 const Diff = require('diff-compare')
+const PACKAGE_NAME = 'showUnsavedChanges'
 
 let decorRanges = []
 let docContent = []
@@ -20,7 +21,7 @@ async function activate(context) {
     await checkForGitPresense(context)
 
     vscode.workspace.onDidChangeConfiguration(async (e) => {
-        if (e.affectsConfiguration('show-unsaved-changes')) {
+        if (e.affectsConfiguration(PACKAGE_NAME)) {
             await readConfig(context)
             await checkForGitPresense(context)
         }
@@ -61,7 +62,7 @@ async function activate(context) {
 
                             // full undo
                             if (
-                                !isDirty && version > 1 && !isUntitled && 
+                                !isDirty && version > 1 && !isUntitled &&
                                 (contentNotChanged(document) || config.clearOnSave)
                             ) {
                                 await resetDecors()
@@ -85,19 +86,19 @@ function initDecorator({document}, context) {
     return new Promise((resolve) => {
         let {fileName} = document
         let obj = {
-            name  : fileName,
-            addKey: createDecorator(context, 'add'),
-            delKey: createDecorator(context, 'del'),
-            ranges: {
-                add: [],
-                del: []
+            name   : fileName,
+            addKey : createDecorator(context, 'add'),
+            delKey : createDecorator(context, 'del'),
+            ranges : {
+                add : [],
+                del : []
             },
             commentThreads: []
         }
 
         docContent.push({
-            name   : fileName,
-            content: document.getText()
+            name    : fileName,
+            content : document.getText()
         })
 
         decorRanges.push(obj)
@@ -111,15 +112,15 @@ function createDecorator(context, type) {
 
     if (config.showInGutter) {
         obj = Object.assign(obj, {
-            gutterIconPath: context.asAbsolutePath(`./img/${type}.svg`),
-            gutterIconSize: gutterConfig.size
+            gutterIconPath : context.asAbsolutePath(`./img/${type}.svg`),
+            gutterIconSize : gutterConfig.size
         })
     }
 
     if (config.showInOverView) {
         obj = Object.assign(obj, {
-            overviewRulerColor: hexToRgba(overviewConfig[type], overviewConfig.opacity),
-            overviewRulerLane : 2
+            overviewRulerColor : hexToRgba(overviewConfig[type], overviewConfig.opacity),
+            overviewRulerLane  : 2
         })
     }
 
@@ -136,8 +137,8 @@ function updateGutter(editor) {
             let del = []
 
             let diff = Diff.build({
-                base   : data.original,
-                compare: document.getText()
+                base    : data.original,
+                compare : document.getText()
             })
 
             for (let i = 0; i < diff.compare.length; i++) {
@@ -152,16 +153,16 @@ function updateGutter(editor) {
 
                     // comments
                     if (
-                        commentController && 
+                        commentController &&
                         (isDelete || (type == 'replace' && base.value && !value))
                     ) {
                         let {languageId, uri, fileName} = document
                         let name = fileName.substr(fileName.lastIndexOf('/') + 1)
                         let msg = base.value || '...'
                         let comment = {
-                            'author': {name: 'delete'},
-                            'body'  : new vscode.MarkdownString().appendCodeblock(msg, languageId),
-                            'mode'  : 1
+                            'author' : {name: 'delete'},
+                            'body'   : new vscode.MarkdownString().appendCodeblock(msg, languageId),
+                            'mode'   : 1
                         }
 
                         let thread = commentController.createCommentThread(uri, range, [comment])
@@ -177,8 +178,8 @@ function updateGutter(editor) {
 
             updateCurrentDecorRanges({
                 ranges: {
-                    add: add,
-                    del: del
+                    add : add,
+                    del : del
                 },
                 commentThreads: threads
             })
@@ -254,7 +255,7 @@ function updateCurrentDecorRanges(val, name = getCurrentFileName()) {
 
 /* Config ------------------------------------------------------------------- */
 async function readConfig(context) {
-    config = await vscode.workspace.getConfiguration('show-unsaved-changes')
+    config = await vscode.workspace.getConfiguration(PACKAGE_NAME)
     overviewConfig = config.styles.overview
     gutterConfig = config.styles.gutter
 
