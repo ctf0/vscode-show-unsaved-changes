@@ -2,19 +2,19 @@
     "name": "show-unsaved-changes",
     "displayName": "Show Unsaved Changes",
     "description": "show unsaved changes for document in gutter (kinda like git)",
-    "version": "0.0.9",
+    "version": "0.1.0",
     "publisher": "ctf0",
     "repository": "https://github.com/ctf0/vscode-show-unsaved-changes",
     "engines": {
-        "vscode": "^1.51.0"
+        "vscode": "^1.68.0"
     },
     "categories": [
         "Other"
     ],
     "activationEvents": [
-        "*"
+        "onStartupFinished"
     ],
-    "main": "./extension.js",
+    "main": "./out/main",
     "contributes": {
         "configuration": {
             "title": "Show Unsaved Changes",
@@ -45,18 +45,36 @@
                     "default": true,
                     "description": "show changes in overview"
                 },
+                "showUnsavedChanges.showDiffOutput": {
+                    "type": "boolean",
+                    "default": false,
+                    "markdownDescription": "show changes diff in output panel"
+                },
+                "showUnsavedChanges.debounceTime": {
+                    "type": "number",
+                    "default": 500,
+                    "minimum": 500,
+                    "markdownDescription": "ms to wait b4 checking for changes\n\n(increase the time if the editor became sluggish)"
+                },
+                "showUnsavedChanges.gitPath": {
+                    "type": "string",
+                    "default": "git",
+                    "markdownDescription": "global git path, [git-installation](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)."
+                },
                 "showUnsavedChanges.styles": {
                     "type": "object",
                     "default": {
                         "overview": {
                             "opacity": 0.75,
                             "add": "#2faf64",
+                            "change": "#FFCE57",
                             "del": "#a31515"
                         },
                         "gutter": {
                             "size": "auto",
-                            "add": "#9a22df",
-                            "del": "#efdc0b"
+                            "add": "#2faf64",
+                            "change": "#FFCE57",
+                            "del": "#a31515"
                         }
                     },
                     "description": "decoration styles"
@@ -64,20 +82,26 @@
             }
         }
     },
+    "scripts": {
+        "vscode:prepublish": "npm run esbuild-base -- --pure:console.log --minify",
+        "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+        "esbuild": "npm run esbuild-base -- --sourcemap",
+        "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+        "watch": "npm run esbuild"
+    },
     "devDependencies": {
-        "@types/glob": "^7.1.3",
-        "@types/mocha": "^8.0.4",
-        "@types/node": "^14.14.10",
-        "@types/vscode": "^1.51.0",
-        "eslint": "^7.15.0",
-        "glob": "^7.1.6",
-        "mocha": "^8.2.1",
-        "typescript": "^4.1.2",
-        "vscode-test": "^1.4.1"
+        "@types/fs-extra": "^11.0.1",
+        "@types/node": "^18.11.18",
+        "@types/vscode": "^1.68.0",
+        "esbuild": "^0.16.9",
+        "typescript": "^4.9.4"
     },
     "dependencies": {
-        "diff-compare": "^1.0.2",
+        "execa": "^6.1.0",
+        "fs-extra": "^11.1.0",
         "hex-to-rgba": "^2.0.1",
-        "lodash.debounce": "^4.0.8"
+        "p-debounce": "^4.0.0",
+        "parse-git-diff": "^0.0.6",
+        "tmp-promise": "^3.0.3"
     }
 }

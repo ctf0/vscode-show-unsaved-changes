@@ -27,3 +27,17 @@
 ## 0.0.9
 
 - fix package settings name
+
+## 0.1.0
+
+- remove comments reply box
+    - disable comments for now as its giving error
+- better api (using `git diff`)
+- add new key **change** to `showUnsavedChanges.styles` to show edited/changed lines
+- now instead of having a comment per line, it will be a comment per group of consecutive lines, more performant & wont slow/kill the editor
+- correct display of changed lines
+- update LICENSE
+- update rdme
+- add new config `showUnsavedChanges.debounceTime`
+- add new config `showUnsavedChanges.showDiffOutput`
+- add new config `showUnsavedChanges.gitPath`

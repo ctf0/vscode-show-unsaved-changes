@@ -1,0 +1,9 @@
+delete line in middle *
+make changes b4 line at end *
+delete line at begin *
+delete consecutive line + of a deleted line *
+add line somewhere *
+delete line at end *
+change line number *
+
+create untitled, write/paste something *
