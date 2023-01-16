@@ -45,6 +45,7 @@ export async function activate(context) {
         vscode.workspace.onDidSaveTextDocument(async (document: vscode.TextDocument) => {
             if (hasContentFor(document.fileName) && utils.config.clearOnSave) {
                 await resetAll(document.fileName);
+                await initDecorator(document);
             }
         }),
 
@@ -245,7 +246,7 @@ async function reApplyDecors(editor: vscode.TextEditor, decor?: any): Promise<un
 }
 
 function resetAll(docFilename: string): Promise<unknown> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const decor = getDecorRangesFor(docFilename);
         const content = findDocumentsContentFor(docFilename);
 

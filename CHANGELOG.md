@@ -41,3 +41,7 @@
 - add new config `showUnsavedChanges.debounceTime`
 - add new config `showUnsavedChanges.showDiffOutput`
 - add new config `showUnsavedChanges.gitPath`
+
+## 0.1.1
+
+- fix not working after save
