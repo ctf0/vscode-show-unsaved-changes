@@ -8,13 +8,13 @@ const decorRanges: any = [];
 const documentsContent: any = [];
 
 export async function activate(context) {
-    await utils.readConfig();
+    utils.readConfig();
     // await utils.checkForGitPresence(context);
     utils.checkForOutputOption(context);
 
     vscode.workspace.onDidChangeConfiguration(async (e) => {
         if (e.affectsConfiguration(utils.PKG_NAME)) {
-            await utils.readConfig();
+            utils.readConfig();
             // await utils.checkForGitPresence(context);
             utils.checkForOutputOption(context);
         }
@@ -36,15 +36,19 @@ export async function activate(context) {
 
         // on close
         vscode.workspace.onDidCloseTextDocument(async (document: vscode.TextDocument) => {
-            if (document && document.isClosed && hasContentFor(document.fileName)) {
-                await resetAll(document.fileName);
+            const { fileName, isClosed } = document;
+
+            if (document && isClosed && hasContentFor(fileName)) {
+                await resetAll(fileName);
             }
         }),
 
         // on save
         vscode.workspace.onDidSaveTextDocument(async (document: vscode.TextDocument) => {
-            if (hasContentFor(document.fileName) && utils.config.clearOnSave) {
-                await resetAll(document.fileName);
+            const { fileName } = document;
+
+            if (hasContentFor(fileName) && utils.config.clearOnSave) {
+                await resetAll(fileName);
                 await initDecorator(document);
             }
         }),
@@ -77,40 +81,46 @@ export async function activate(context) {
 /* Decors ------------------------------------------------------------------- */
 // init
 function initDecorator(document: vscode.TextDocument) {
-    return new Promise((resolve, reject) => {
-        const { fileName, uri } = document;
+    try {
+        return new Promise(async (resolve, reject) => {
+            const { fileName, uri } = document;
 
-        if (!['file', 'untitled'].includes(uri.scheme)) {
-            return reject();
-        }
+            if (!utils.config.schemeTypes.includes(uri.scheme)) {
+                await utils.showMessage(`file scheme type '${uri.scheme}' is not supported`);
 
-        if (hasContentFor(fileName)) {
-            return reject();
-        }
+                return reject();
+            }
 
-        decorRanges.push({
-            name      : fileName,
-            addKey    : createDecorator('add'),
-            delKey    : createDecorator('del'),
-            changeKey : createDecorator('change'),
-            ranges    : {
-                add    : [],
-                del    : [],
-                change : [],
-            },
-            commentThreads: [],
+            if (hasContentFor(fileName)) {
+                return reject();
+            }
+
+            decorRanges.push({
+                name      : fileName,
+                addKey    : createDecorator('add'),
+                delKey    : createDecorator('del'),
+                changeKey : createDecorator('change'),
+                ranges    : {
+                    add    : [],
+                    del    : [],
+                    change : [],
+                },
+                commentThreads: [],
+            });
+
+            documentsContent.push({
+                name    : fileName,
+                history : {
+                    content   : document.getText(),
+                    lineCount : document.lineCount,
+                },
+            });
+
+            resolve(true);
         });
-
-        documentsContent.push({
-            name    : fileName,
-            history : {
-                content   : document.getText(),
-                lineCount : document.lineCount,
-            },
-        });
-
-        resolve(true);
-    });
+    } catch (error) {
+        // console.error(error);
+    }
 }
 
 function createDecorator(type: string): vscode.TextEditorDecorationType {

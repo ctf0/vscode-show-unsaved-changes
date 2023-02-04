@@ -45,3 +45,7 @@
 ## 0.1.1
 
 - fix not working after save
+
+## 0.1.2
+
+- add new config `showUnsavedChanges.schemeTypes`

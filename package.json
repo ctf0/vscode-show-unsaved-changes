@@ -2,7 +2,7 @@
     "name": "show-unsaved-changes",
     "displayName": "Show Unsaved Changes",
     "description": "show unsaved changes for document in gutter (kinda like git)",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "publisher": "ctf0",
     "repository": "https://github.com/ctf0/vscode-show-unsaved-changes",
     "engines": {
@@ -61,6 +61,20 @@
                     "default": "git",
                     "markdownDescription": "global git path, [git-installation](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)."
                 },
+                "showUnsavedChanges.schemeTypes": {
+                    "type": "array",
+                    "default": [
+                        "file",
+                        "untitled",
+                        "vscode-userdata"
+                    ],
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "description": "allowed files schemes"
+                },
                 "showUnsavedChanges.styles": {
                     "type": "object",
                     "default": {
@@ -93,8 +107,8 @@
         "@types/fs-extra": "^11.0.1",
         "@types/node": "^18.11.18",
         "@types/vscode": "^1.68.0",
-        "esbuild": "^0.17.0",
-        "typescript": "^4.9.4"
+        "esbuild": "^0.17.5",
+        "typescript": "^4.9.5"
     },
     "dependencies": {
         "execa": "^6.1.0",

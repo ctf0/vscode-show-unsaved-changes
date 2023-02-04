@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'node:path';
 import * as vscode from 'vscode';
 
-export let config: any = {};
+export let config: vscode.WorkspaceConfiguration;
 export let gutterConfig: any = {};
 export let overviewConfig: any = {};
 export let commentController: vscode.CommentController;
@@ -54,7 +54,7 @@ export function getFileNameFromPath(filePath) {
 
 /* Config ------------------------------------------------------------------- */
 export async function readConfig(): Promise<void> {
-    config = await vscode.workspace.getConfiguration(PKG_NAME);
+    config = vscode.workspace.getConfiguration(PKG_NAME);
     overviewConfig = config.styles.overview;
     gutterConfig = config.styles.gutter;
 
@@ -85,4 +85,8 @@ export function groupConsecutiveLines(list) {
 
         return accumulator;
     }, []);
+}
+
+export function showMessage(msg) {
+    return vscode.window.showWarningMessage(`${PKG_LABEL}: ${msg}`);
 }
