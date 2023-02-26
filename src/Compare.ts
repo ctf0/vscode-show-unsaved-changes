@@ -106,7 +106,12 @@ async function runDiffCmnd(path1: string, path2: string, isEmptyFile = false) {
             path2,
         ];
 
-        const { stdout } = await execa(utils.config.gitPath, args, { shell: vscode.env.shell });
+        let pathShell = vscode.env.shell;
+        if(utils.config.terminalPath != "default"){
+            pathShell = utils.config.terminalPath;
+        }
+        
+        const { stdout } = await execa(utils.config.gitPath, args, { shell: pathShell });
 
         return stdout;
     } catch ({ message }) {
