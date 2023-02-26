@@ -51,4 +51,5 @@
 - add new config `showUnsavedChanges.schemeTypes`
 
 ## 0.1.3
-- add new config `showUnsavedChanges.terminalShellPath`
+
+- add new config `showUnsavedChanges.terminalShellPath` thanks to [pit00](https://github.com/pit00)
