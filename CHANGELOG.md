@@ -49,3 +49,6 @@
 ## 0.1.2
 
 - add new config `showUnsavedChanges.schemeTypes`
+
+## 0.1.3
+- add new config `showUnsavedChanges.terminalShellPath`

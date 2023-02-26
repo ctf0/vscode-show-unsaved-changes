@@ -2,7 +2,7 @@
     "name": "show-unsaved-changes",
     "displayName": "Show Unsaved Changes",
     "description": "show unsaved changes for document in gutter (kinda like git)",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "publisher": "ctf0",
     "repository": "https://github.com/ctf0/vscode-show-unsaved-changes",
     "engines": {
@@ -60,6 +60,11 @@
                     "type": "string",
                     "default": "git",
                     "markdownDescription": "global git path, [git-installation](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)."
+                },
+                "showUnsavedChanges.terminalShellPath": {
+                    "type": ["string", "null"],
+                    "default": null,
+                    "description": "custom terminal shell path"
                 },
                 "showUnsavedChanges.schemeTypes": {
                     "type": "array",
