@@ -61,10 +61,10 @@
                     "default": "git",
                     "markdownDescription": "global git path, [git-installation](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)."
                 },
-                "showUnsavedChanges.terminalPath": {
-                    "type": "string",
-                    "default": "default",
-                    "description": "custom terminal path"
+                "showUnsavedChanges.terminalShellPath": {
+                    "type": ["string", "null"],
+                    "default": null,
+                    "description": "custom terminal shell path"
                 },
                 "showUnsavedChanges.schemeTypes": {
                     "type": "array",
