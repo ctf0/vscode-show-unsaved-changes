@@ -12,6 +12,27 @@ export const PKG_NAME = 'showUnsavedChanges';
 export const PKG_ID = 'show-unsaved-changes';
 export const PKG_LABEL = 'Show Unsaved Changes';
 
+export type DecorRange = {
+    name: string,
+    addKey: vscode.TextEditorDecorationType,
+    delKey: vscode.TextEditorDecorationType,
+    changeKey: vscode.TextEditorDecorationType,
+    ranges: {
+        add: vscode.Range[],
+        del: vscode.Range[],
+        change: vscode.Range[],
+    },
+    commentThreads: vscode.CommentThread[],
+}
+
+export type DocumentContent = {
+    name: string,
+    history: {
+        content: string,
+        lineCount: number,
+    },
+}
+
 export async function checkForGitPresence(context) {
     let check = false;
 

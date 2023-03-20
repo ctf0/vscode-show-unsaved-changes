@@ -2,7 +2,7 @@
     "name": "show-unsaved-changes",
     "displayName": "Show Unsaved Changes",
     "description": "show unsaved changes for document in gutter (kinda like git)",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "publisher": "ctf0",
     "repository": "https://github.com/ctf0/vscode-show-unsaved-changes",
     "engines": {
@@ -16,6 +16,66 @@
     ],
     "main": "./out/main",
     "contributes": {
+        "commands": [
+            {
+                "command": "showUnsavedChanges.goToPrevChange",
+                "title": "Go To Prev Change",
+                "category": "Show Unsaved Changes",
+                "icon": "$(chevron-up)"
+            },
+            {
+                "command": "showUnsavedChanges.goToNextChange",
+                "title": "Go To Next Change",
+                "category": "Show Unsaved Changes",
+                "icon": "$(chevron-down)"
+            }
+        ],
+        "submenus": [
+            {
+                "id": "suc.editor.context",
+                "label": "Show Unsaved Changes"
+            }
+        ],
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "showUnsavedChanges.goToPrevChange",
+                    "when": "sucFilePath"
+                },
+                {
+                    "command": "showUnsavedChanges.goToNextChange",
+                    "when": "sucFilePath"
+                }
+            ],
+            "editor/context": [
+                {
+                    "submenu": "suc.editor.context",
+                    "group": "suc"
+                }
+            ],
+            "editor/title": [
+                {
+                    "command": "showUnsavedChanges.goToPrevChange",
+                    "when": "sucFilePath",
+                    "group": "navigation"
+                },
+                {
+                    "command": "showUnsavedChanges.goToNextChange",
+                    "when": "sucFilePath",
+                    "group": "navigation"
+                }
+            ],
+            "suc.editor.context": [
+                {
+                    "command": "showUnsavedChanges.goToPrevChange",
+                    "when": "sucFilePath"
+                },
+                {
+                    "command": "showUnsavedChanges.goToNextChange",
+                    "when": "sucFilePath"
+                }
+            ]
+        },
         "configuration": {
             "title": "Show Unsaved Changes",
             "type": "object",

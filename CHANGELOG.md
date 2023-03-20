@@ -53,3 +53,7 @@
 ## 0.1.3
 
 - add new config `showUnsavedChanges.terminalShellPath` thanks to [pit00](https://github.com/pit00)
+
+## 0.1.4
+
+- add cmnds to navigate the changes made like git thanks to [pit00](https://github.com/pit00) for suggestion
