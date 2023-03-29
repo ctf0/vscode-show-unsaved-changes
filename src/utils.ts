@@ -41,7 +41,7 @@ export async function checkForGitPresence(context) {
 
         check = !!files.length;
     }
-
+    
     if (check) {
         if (commentController) {
             commentController.dispose();
@@ -51,6 +51,19 @@ export async function checkForGitPresence(context) {
 
         context.subscriptions.push(commentController);
     }
+}
+
+export async function checkForGitRepo(context) {
+    let check = false;
+    config = vscode.workspace.getConfiguration(PKG_NAME);
+    
+    if (config.gitDisable) {
+        const files = await vscode.workspace.findFiles('.gitignore', null, 1);
+
+        check = !!files.length;
+    }
+
+    return(check)
 }
 
 export function checkForOutputOption(context) {
@@ -66,7 +79,7 @@ export function checkForOutputOption(context) {
 }
 
 export function getImgPath(type: string) {
-    return vscode.extensions.getExtension(`ctf0.${PKG_ID}`)!.extensionUri.path + `/img/${type}.svg`;
+    return vscode.extensions.getExtension(`ctf0.${PKG_ID}`)!.extensionUri.path.replace(/\/(\w:)/, "$1") + `/img/${type}.svg`;
 }
 
 export function getFileNameFromPath(filePath) {

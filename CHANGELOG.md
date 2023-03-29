@@ -57,3 +57,9 @@
 ## 0.1.4
 
 - add cmnds to navigate the changes made like git thanks to [pit00](https://github.com/pit00) for suggestion
+
+## 0.1.5
+
+- fix gutter color customization at Windows
+- add new config `showUnsavedChanges.gitDisable`
+- add new config for overview styles: position (can be "Center", "Left", "Right" or "Full")
