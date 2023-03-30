@@ -41,7 +41,7 @@ export async function checkForGitPresence(context) {
 
         check = !!files.length;
     }
-    
+
     if (check) {
         if (commentController) {
             commentController.dispose();

@@ -6,16 +6,10 @@ import * as utils from './utils';
 
 const decorRanges: utils.DecorRange[] = [];
 const documentsContent: utils.DocumentContent[] = [];
-const rulerPosition = {
-    Center: 2,
-    Left: 1,
-    Right: 4,
-    Full: 7
-}
 
 export async function activate(context) {
     if(await utils.checkForGitRepo(context)){
-        return(null);
+        return;
     }
 
     utils.readConfig();
@@ -152,7 +146,7 @@ function createDecorator(type: string): vscode.TextEditorDecorationType {
     if (utils.config.showInOverView) {
         obj = Object.assign(obj, {
             overviewRulerColor: hexToRgba(utils.overviewConfig[type], utils.overviewConfig.opacity),
-            overviewRulerLane: rulerPosition[utils.overviewConfig.position],
+            overviewRulerLane: utils.overviewConfig.position
         });
     }
 
