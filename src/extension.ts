@@ -59,7 +59,7 @@ export async function activate(context) {
 
         // on file change
         vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
-            if (editor) {
+            if (editor && editor === getActiveEditor()) {
                 setContext(!contentNotChanged(editor.document));
             }
         }),
@@ -70,7 +70,7 @@ export async function activate(context) {
                 const { document } = e;
                 const editor = getActiveEditor();
 
-                if (editor && editor.document == document) {
+                if (editor && editor.document === document) {
                     // full undo
                     if (
                         document.version > 1 &&
@@ -91,11 +91,11 @@ export async function activate(context) {
 // init
 function initDecorator(document: vscode.TextDocument) {
     try {
-        return new Promise(async (resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const { fileName, uri } = document;
 
             if (!utils.config.schemeTypes.includes(uri.scheme)) {
-                await utils.showMessage(`file scheme type '${uri.scheme}' is not supported`);
+                utils.showMessage(`file scheme type '${uri.scheme}' is not supported`);
 
                 return reject();
             }
@@ -387,6 +387,8 @@ function getNearestChangedLineNumber(direction: number): number {
             }
         }
     }
+
+    return 0;
 }
 
 function getLineNumbersList(fileName) {
