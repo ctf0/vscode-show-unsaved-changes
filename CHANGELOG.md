@@ -57,3 +57,8 @@
 ## 0.1.4
 
 - add cmnds to navigate the changes made like git thanks to [pit00](https://github.com/pit00) for suggestion
+
+## 0.1.7
+
+- fix some errors
+- update base vscode version to 1.75

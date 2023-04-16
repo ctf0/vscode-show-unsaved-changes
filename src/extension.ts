@@ -22,21 +22,17 @@ export async function activate(context) {
 
     // on start
     for (const editor of vscode.window.visibleTextEditors) {
-        await initDecorator(editor.document);
+        try {
+            await initDecorator(editor.document);
+        } catch (error) {
+            // console.error(error);
+        }
     }
 
     context.subscriptions.push(
         // commands
         vscode.commands.registerCommand('showUnsavedChanges.goToPrevChange', () => getNearestChangedLineNumber(-1)),
         vscode.commands.registerCommand('showUnsavedChanges.goToNextChange', () => getNearestChangedLineNumber(1)),
-
-        // on new document
-        // @ts-ignore
-        vscode.window.onDidChangeVisibleTextEditors(async (editors: vscode.TextEditor[]) => {
-            for (const editor of editors) {
-                await reApplyDecors(editor);
-            }
-        }),
 
         // on close
         vscode.workspace.onDidCloseTextDocument(async (document: vscode.TextDocument) => {
@@ -58,9 +54,14 @@ export async function activate(context) {
         }),
 
         // on file change
-        vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
-            if (editor && editor === getActiveEditor()) {
-                setContext(!contentNotChanged(editor.document));
+        vscode.window.onDidChangeActiveTextEditor(async (editor: vscode.TextEditor | undefined) => {
+            if (editor) {
+                const { document } = editor;
+
+                if (utils.config.schemeTypes.includes(document.uri.scheme)) {
+                    await reApplyDecors(editor);
+                    await setContext(!contentNotChanged(document));
+                }
             }
         }),
 
@@ -90,46 +91,42 @@ export async function activate(context) {
 /* Decors ------------------------------------------------------------------- */
 // init
 function initDecorator(document: vscode.TextDocument) {
-    try {
-        return new Promise((resolve, reject) => {
-            const { fileName, uri } = document;
+    return new Promise((resolve, reject) => {
+        const { fileName, uri } = document;
 
-            if (!utils.config.schemeTypes.includes(uri.scheme)) {
-                utils.showMessage(`file scheme type '${uri.scheme}' is not supported`);
+        if (!utils.config.schemeTypes.includes(uri.scheme)) {
+            utils.showMessage(`file scheme type '${uri.scheme}' is not supported`);
 
-                return reject();
-            }
+            return reject(false);
+        }
 
-            if (hasContentFor(fileName)) {
-                return reject();
-            }
+        if (hasContentFor(fileName)) {
+            return reject(false);
+        }
 
-            decorRanges.push({
-                name      : fileName,
-                addKey    : createDecorator('add'),
-                delKey    : createDecorator('del'),
-                changeKey : createDecorator('change'),
-                ranges    : {
-                    add    : [],
-                    del    : [],
-                    change : [],
-                },
-                commentThreads: [],
-            });
-
-            documentsContent.push({
-                name    : fileName,
-                history : {
-                    content   : document.getText(),
-                    lineCount : document.lineCount,
-                },
-            });
-
-            resolve(true);
+        decorRanges.push({
+            name      : fileName,
+            addKey    : createDecorator('add'),
+            delKey    : createDecorator('del'),
+            changeKey : createDecorator('change'),
+            ranges    : {
+                add    : [],
+                del    : [],
+                change : [],
+            },
+            commentThreads: [],
         });
-    } catch (error) {
-        // console.error(error);
-    }
+
+        documentsContent.push({
+            name    : fileName,
+            history : {
+                content   : document.getText(),
+                lineCount : document.lineCount,
+            },
+        });
+
+        resolve(true);
+    });
 }
 
 function createDecorator(type: string): vscode.TextEditorDecorationType {
@@ -164,7 +161,7 @@ async function updateDecors(document: vscode.TextDocument) {
             let decor = getDecorRangesFor(fileName);
 
             if (!decor) {
-                return reject();
+                return reject(false);
             }
 
             const snapshot = getLastSnapshotFor(fileName);
@@ -217,7 +214,7 @@ async function updateDecors(document: vscode.TextDocument) {
 
                         if (isDelete || isChange) {
                             groupComments.push({
-                                author : { name: (isChange ? 'Changed' : 'Deleted') + ` :${lineNumber + 1}` },
+                                author : { name: (isChange ? 'Changed' : 'Deleted') + ` : #${lineNumber + 1}` },
                                 body   : new vscode.MarkdownString().appendCodeblock(item.lineValue || '...', languageId),
                                 mode   : 1,
                             });
@@ -248,11 +245,11 @@ async function updateDecors(document: vscode.TextDocument) {
             // @ts-ignore
             await reApplyDecors(getActiveEditor(), decor);
 
-            setContext(true);
+            await setContext(true);
 
             resolve(true);
         } catch (error) {
-            // console.error(error);
+            console.error(error);
 
             await resetAll(fileName);
 
@@ -264,20 +261,24 @@ async function updateDecors(document: vscode.TextDocument) {
 async function reApplyDecors(editor: vscode.TextEditor, decor?: utils.DecorRange | any): Promise<unknown> {
     try {
         const { document } = editor;
-        decor = decor || getDecorRangesFor(document.fileName);
+        const { fileName, isClosed } = document;
 
-        if (decor) {
-            return new Promise((resolve) => {
-                const ranges = decor.ranges;
+        if (!isClosed) {
+            decor = decor || getDecorRangesFor(fileName);
 
-                editor.setDecorations(decor.addKey, ranges.add);
-                editor.setDecorations(decor.delKey, ranges.del);
-                editor.setDecorations(decor.changeKey, ranges.change);
+            if (decor) {
+                return new Promise((resolve) => {
+                    const ranges = decor.ranges;
 
-                resolve(true);
-            });
-        } else {
-            await initDecorator(document);
+                    editor.setDecorations(decor.addKey, ranges.add);
+                    editor.setDecorations(decor.delKey, ranges.del);
+                    editor.setDecorations(decor.changeKey, ranges.change);
+
+                    resolve(true);
+                });
+            } else {
+                await initDecorator(document);
+            }
         }
     } catch (error) {
         // console.error(error);
@@ -285,14 +286,14 @@ async function reApplyDecors(editor: vscode.TextEditor, decor?: utils.DecorRange
 }
 
 function resetAll(docFilename: string): Promise<unknown> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         const decor = getDecorRangesFor(docFilename);
         const content = findDocumentsContentFor(docFilename);
 
-        setContext(false);
+        await setContext(false);
 
         if (!decor && !content) {
-            return reject();
+            return reject(false);
         }
 
         if (decor) {
@@ -347,7 +348,7 @@ function hasContentFor(fileName: string): boolean {
 }
 
 function setContext(val, key = 'sucFilePath') {
-    vscode.commands.executeCommand('setContext', key, val);
+    return vscode.commands.executeCommand('setContext', key, val);
 }
 
 function getNearestChangedLineNumber(direction: number): number {

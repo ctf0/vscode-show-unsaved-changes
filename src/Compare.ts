@@ -84,7 +84,7 @@ export async function compareStreams(_old: string, _new: string): Promise<Conten
 
                 resolve(results);
             } else {
-                reject();
+                reject(false);
             }
         } catch (error) {
             reject(error);
