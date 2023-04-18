@@ -2,7 +2,7 @@
     "name": "show-unsaved-changes",
     "displayName": "Show Unsaved Changes",
     "description": "show unsaved changes for document in gutter (kinda like git)",
-    "version": "0.1.7",
+    "version": "0.1.8",
     "publisher": "ctf0",
     "repository": "https://github.com/ctf0/vscode-show-unsaved-changes",
     "engines": {
@@ -142,6 +142,18 @@
                     "minItems": 1,
                     "uniqueItems": true,
                     "description": "allowed files schemes"
+                },
+                "showUnsavedChanges.schemeTypesIgnore": {
+                    "type": "array",
+                    "default": [
+                        "vscode-terminal"
+                    ],
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "description": "ignore this schemes & dont show warning message when requested"
                 },
                 "showUnsavedChanges.styles": {
                     "type": "object",

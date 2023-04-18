@@ -93,9 +93,14 @@ export async function activate(context) {
 function initDecorator(document: vscode.TextDocument) {
     return new Promise((resolve, reject) => {
         const { fileName, uri } = document;
+        const fileScheme = uri.scheme;
 
-        if (!utils.config.schemeTypes.includes(uri.scheme)) {
-            utils.showMessage(`file scheme type '${uri.scheme}' is not supported`);
+        if (utils.config.schemeTypesIgnore.some((scheme) => scheme == fileScheme)) {
+            return reject(false);
+        }
+
+        if (!utils.config.schemeTypes.some((scheme) => scheme == fileScheme)) {
+            utils.showMessage(`file scheme type '${fileScheme}' is not supported`);
 
             return reject(false);
         }

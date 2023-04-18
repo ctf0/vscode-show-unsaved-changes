@@ -62,3 +62,7 @@
 
 - fix some errors
 - update base vscode version to 1.75
+
+## 0.1.8
+
+- add new config `showUnsavedChanges.schemeTypesIgnore`
