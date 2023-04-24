@@ -58,7 +58,7 @@ export async function activate(context) {
             if (editor) {
                 const { document } = editor;
 
-                if (utils.config.schemeTypes.includes(document.uri.scheme)) {
+                if (utils.config.schemeTypes.includes(document.uri.scheme) && !isIgnored(document)) {
                     await reApplyDecors(editor);
                     await setContext(!contentNotChanged(document));
                 }
@@ -88,6 +88,10 @@ export async function activate(context) {
     );
 }
 
+function isIgnored(document: vscode.TextDocument) {
+    return utils.config.schemeTypesIgnore.some((scheme) => scheme == document.uri.scheme);
+}
+
 /* Decors ------------------------------------------------------------------- */
 // init
 function initDecorator(document: vscode.TextDocument) {
@@ -95,7 +99,7 @@ function initDecorator(document: vscode.TextDocument) {
         const { fileName, uri } = document;
         const fileScheme = uri.scheme;
 
-        if (utils.config.schemeTypesIgnore.some((scheme) => scheme == fileScheme)) {
+        if (isIgnored(fileScheme)) {
             return reject(false);
         }
 
@@ -219,7 +223,7 @@ async function updateDecors(document: vscode.TextDocument) {
 
                         if (isDelete || isChange) {
                             groupComments.push({
-                                author : { name: (isChange ? 'Changed' : 'Deleted') + ` : #${lineNumber + 1}` },
+                                author : { name: `${isChange ? 'Changed' : 'Deleted'} : #${lineNumber + 1}` },
                                 body   : new vscode.MarkdownString().appendCodeblock(item.lineValue || '...', languageId),
                                 mode   : 1,
                             });
@@ -240,9 +244,9 @@ async function updateDecors(document: vscode.TextDocument) {
 
             decor = Object.assign(decor, {
                 ranges: {
-                    add    : add,
-                    del    : del,
-                    change : change,
+                    add,
+                    del,
+                    change,
                 },
                 commentThreads: threads,
             });
@@ -281,9 +285,9 @@ async function reApplyDecors(editor: vscode.TextEditor, decor?: utils.DecorRange
 
                     resolve(true);
                 });
-            } else {
-                await initDecorator(document);
             }
+
+            await initDecorator(document);
         }
     } catch (error) {
         // console.error(error);

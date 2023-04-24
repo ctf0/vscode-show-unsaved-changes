@@ -69,7 +69,7 @@ export async function compareStreams(_old: string, _new: string): Promise<Conten
                                     });
                                 } else {
                                     results.push({
-                                        lineNumber    : lineNumber,
+                                        lineNumber,
                                         oldLineNumber : isSingleDeletedLine ? lineNumber : change.lineBefore - 1,
                                         lineValue     : change.content,
                                         add           : false,
