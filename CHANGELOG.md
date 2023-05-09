@@ -66,3 +66,7 @@
 ## 0.1.8
 
 - add new config `showUnsavedChanges.schemeTypesIgnore`
+
+## 0.2.0
+
+- typo

@@ -99,7 +99,7 @@ function initDecorator(document: vscode.TextDocument) {
         const { fileName, uri } = document;
         const fileScheme = uri.scheme;
 
-        if (isIgnored(fileScheme)) {
+        if (isIgnored(document)) {
             return reject(false);
         }
 
