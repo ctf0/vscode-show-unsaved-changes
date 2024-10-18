@@ -67,7 +67,7 @@ export async function activate(context) {
 
         // on typing
         vscode.workspace.onDidChangeTextDocument(
-            await pDebounce(async (e: vscode.TextDocumentChangeEvent) => {
+            pDebounce(async (e: vscode.TextDocumentChangeEvent) => {
                 const { document } = e;
                 const editor = getActiveEditor();
 
@@ -78,9 +78,10 @@ export async function activate(context) {
                         contentNotChanged(document)
                     ) {
                         await resetAll(document.fileName);
-                        await initDecorator(document);
+
+                        return initDecorator(document);
                     } else {
-                        await updateDecors(document);
+                        return updateDecors(document);
                     }
                 }
             }, utils.config.debounceTime),
@@ -258,7 +259,7 @@ async function updateDecors(document: vscode.TextDocument) {
 
             resolve(true);
         } catch (error) {
-            console.error(error);
+            // console.error(error);
 
             await resetAll(fileName);
 

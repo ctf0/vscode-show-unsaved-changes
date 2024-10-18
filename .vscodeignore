@@ -11,3 +11,4 @@ src/**
 **/tsconfig.json
 *.txt
 yarn.lock
+bun.lockb
