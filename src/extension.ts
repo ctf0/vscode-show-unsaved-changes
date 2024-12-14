@@ -9,25 +9,19 @@ const documentsContent: utils.DocumentContent[] = [];
 
 export async function activate(context) {
     utils.readConfig();
-    // await utils.checkForGitPresence(context);
     utils.checkForOutputOption(context);
 
     vscode.workspace.onDidChangeConfiguration(async (e) => {
         if (e.affectsConfiguration(utils.PKG_NAME)) {
             utils.readConfig();
-            // await utils.checkForGitPresence(context);
             utils.checkForOutputOption(context);
+
+            await visibleEditors(true);
         }
     });
 
     // on start
-    for (const editor of vscode.window.visibleTextEditors) {
-        try {
-            await initDecorator(editor.document);
-        } catch (error) {
-            // console.error(error);
-        }
-    }
+    await visibleEditors();
 
     context.subscriptions.push(
         // commands
@@ -89,6 +83,16 @@ export async function activate(context) {
     );
 }
 
+async function visibleEditors(updateDecors: boolean = false) {
+    for (const editor of vscode.window.visibleTextEditors) {
+        try {
+            await reApplyDecors(editor, updateDecors);
+        } catch (error) {
+            // console.error(error);
+        }
+    }
+}
+
 function isIgnored(document: vscode.TextDocument) {
     return utils.config.schemeTypesIgnore.some((scheme) => scheme == document.uri.scheme);
 }
@@ -115,23 +119,22 @@ function initDecorator(document: vscode.TextDocument) {
         }
 
         decorRanges.push({
-            name      : fileName,
-            addKey    : createDecorator('add'),
-            delKey    : createDecorator('del'),
-            changeKey : createDecorator('change'),
-            ranges    : {
-                add    : [],
-                del    : [],
-                change : [],
+            name: fileName,
+            addKey: createDecorator('add'),
+            delKey: createDecorator('del'),
+            changeKey: createDecorator('change'),
+            ranges: {
+                add: [],
+                del: [],
+                change: [],
             },
-            commentThreads: [],
         });
 
         documentsContent.push({
-            name    : fileName,
-            history : {
-                content   : document.getText(),
-                lineCount : document.lineCount,
+            name: fileName,
+            history: {
+                content: document.getText(),
+                lineCount: document.lineCount,
             },
         });
 
@@ -144,15 +147,15 @@ function createDecorator(type: string): vscode.TextEditorDecorationType {
 
     if (utils.config.showInGutter) {
         obj = Object.assign(obj, {
-            gutterIconPath : utils.getImgPath(type),
-            gutterIconSize : utils.gutterConfig.size,
+            gutterIconPath: utils.getImgPath(type),
+            gutterIconSize: utils.gutterConfig.size,
         });
     }
 
     if (utils.config.showInOverView) {
         obj = Object.assign(obj, {
-            overviewRulerColor : hexToRgba(utils.overviewConfig[type], utils.overviewConfig.opacity),
-            overviewRulerLane  : 2,
+            overviewRulerColor: hexToRgba(utils.overviewConfig[type], utils.overviewConfig.opacity),
+            overviewRulerLane: 2,
         });
     }
 
@@ -164,7 +167,7 @@ function getActiveEditor(): vscode.TextEditor | undefined {
 }
 
 async function updateDecors(document: vscode.TextDocument) {
-    const { languageId, uri, fileName } = document;
+    const { fileName } = document;
 
     return new Promise(async (resolve, reject) => {
         try {
@@ -202,58 +205,16 @@ async function updateDecors(document: vscode.TextDocument) {
                 }
             }
 
-            // comments
-            const threads: any = [];
-
-            await vscode.commands.executeCommand('workbench.action.collapseAllComments');
-
-            decor.commentThreads.map((thread: vscode.CommentThread) => thread.dispose());
-
-            if (utils.commentController !== undefined) {
-                const consecutiveLines: any = utils.groupConsecutiveLines(
-                    results.filter((line) => line.del || line.change),
-                );
-
-                for (const group of consecutiveLines) {
-                    const groupComments: vscode.Comment[] = [];
-
-                    for (const item of group) {
-                        const lineNumber = item.oldLineNumber || item.lineNumber;
-                        const isDelete = item.del == true;
-                        const isChange = item.change == true;
-
-                        if (isDelete || isChange) {
-                            groupComments.push({
-                                author : { name: `${isChange ? 'Changed' : 'Deleted'} : #${lineNumber + 1}` },
-                                body   : new vscode.MarkdownString().appendCodeblock(item.lineValue || '...', languageId),
-                                mode   : 1,
-                            });
-                        }
-                    }
-
-                    const thread = utils.commentController.createCommentThread(
-                        uri,
-                        new vscode.Range(group[0].lineNumber, 0, group[0].lineNumber, 0),
-                        groupComments,
-                    );
-                    thread.label = `${utils.PKG_LABEL}: ${utils.getFileNameFromPath(fileName)}`;
-                    thread.canReply = false;
-
-                    threads.push(thread);
-                }
-            }
-
             decor = Object.assign(decor, {
                 ranges: {
                     add,
                     del,
                     change,
                 },
-                commentThreads: threads,
             });
 
             // @ts-ignore
-            await reApplyDecors(getActiveEditor(), decor);
+            await reApplyDecors(getActiveEditor(), false, decor);
 
             await setContext(true);
 
@@ -268,7 +229,7 @@ async function updateDecors(document: vscode.TextDocument) {
     });
 }
 
-async function reApplyDecors(editor: vscode.TextEditor, decor?: utils.DecorRange | any): Promise<unknown> {
+async function reApplyDecors(editor: vscode.TextEditor, updateDecors: boolean = false, decor?: utils.DecorRange | any): Promise<unknown> {
     try {
         const { document } = editor;
         const { fileName, isClosed } = document;
@@ -277,6 +238,18 @@ async function reApplyDecors(editor: vscode.TextEditor, decor?: utils.DecorRange
             decor = decor || getDecorRangesFor(fileName);
 
             if (decor) {
+                if (updateDecors) {
+                    decor.addKey.dispose();
+                    decor.delKey.dispose();
+                    decor.changeKey.dispose();
+
+                    decor = Object.assign(decor, {
+                        addKey: createDecorator('add'),
+                        delKey: createDecorator('del'),
+                        changeKey: createDecorator('change'),
+                    })
+                }
+
                 return new Promise((resolve) => {
                     const ranges = decor.ranges;
 
@@ -310,7 +283,6 @@ function resetAll(docFilename: string): Promise<unknown> {
             decor.addKey.dispose();
             decor.delKey.dispose();
             decor.changeKey.dispose();
-            decor.commentThreads.forEach((comment: { dispose: () => any; }) => comment.dispose());
 
             decorRanges.splice(decorRanges.indexOf(decor), 1);
         }

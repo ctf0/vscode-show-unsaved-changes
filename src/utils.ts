@@ -5,7 +5,6 @@ import * as vscode from 'vscode';
 export let config: vscode.WorkspaceConfiguration;
 export let gutterConfig: any = {};
 export let overviewConfig: any = {};
-export let commentController: vscode.CommentController;
 export let outputController: vscode.OutputChannel;
 
 export const PKG_NAME = 'showUnsavedChanges';
@@ -22,7 +21,6 @@ export type DecorRange = {
         del: vscode.Range[],
         change: vscode.Range[],
     },
-    commentThreads: vscode.CommentThread[],
 }
 
 export type DocumentContent = {
@@ -33,31 +31,13 @@ export type DocumentContent = {
     },
 }
 
-export async function checkForGitPresence(context) {
-    let check = false;
-
-    if (config.scmDisable) {
-        const files = await vscode.workspace.findFiles('.gitignore', null, 1);
-
-        check = !!files.length;
-    }
-
-    if (check) {
-        if (commentController) {
-            commentController.dispose();
-        }
-    } else {
-        commentController = vscode.comments.createCommentController(PKG_ID, PKG_LABEL);
-
-        context.subscriptions.push(commentController);
-    }
-}
-
 export function checkForOutputOption(context) {
     if (config.showDiffOutput) {
-        outputController = vscode.window.createOutputChannel(PKG_LABEL, 'diff');
+        if (!outputController) {
+            outputController = vscode.window.createOutputChannel(PKG_LABEL, 'diff');
 
-        context.subscriptions.push(outputController);
+            context.subscriptions.push(outputController);
+        }
     } else {
         if (outputController) {
             outputController.dispose();
