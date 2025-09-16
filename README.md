@@ -5,7 +5,6 @@ show unsaved changes for document in gutter (kinda like git)
 ## Features
 
 - show `added/changed/deleted` lines indicators in gutter & overview ruler
-- show comments with original contents of `deleted/changed` line for easier debugging
 - remove indicators on file `close/save`
 
 ![demo](https://user-images.githubusercontent.com/7388088/72254779-b5281880-360d-11ea-92f7-1e8508f356aa.png)
