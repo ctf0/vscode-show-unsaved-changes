@@ -80,3 +80,7 @@
 - remove `showUnsavedChanges.scmDisable` as comments is removed anyway
 - listen to the config changes and reapply the decoration, so we dont have to restart the editor
 - fix creating too many output channels
+
+## 0.3.5
+
+- update deps
