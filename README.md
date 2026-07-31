@@ -2,6 +2,18 @@
 
 show unsaved changes for document in gutter (kinda like git)
 
+> ## v1.0+
+
+we now use native git diff which give us much more flexibility in showing the changes & also allows you to always get the same experiance regardless of the opened file.
+
+- `file` docs "use the built-in quick diff":
+    - (tracked files)
+        - use vscode native git diff
+    - (gitignored / untracked / non-repo files)
+        - use the extension provider.
+- non-`file` docs (`untitled`, `vscode-userdata`, ...) "use the custom gutter & overview ruler".
+- new commands to jump between changes (`Go To Prev/Next Change`)
+
 ## Features
 
 - show `added/changed/deleted` lines indicators in gutter & overview ruler

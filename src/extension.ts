@@ -1,22 +1,21 @@
 import pDebounce from 'p-debounce'
 import * as vscode from 'vscode'
 import * as decorations from './libs/decorations'
-import * as deletedContent from './libs/deletedContent'
 import * as navigation from './libs/navigation'
+import * as quickDiff from './libs/quickDiff'
 import * as state from './libs/state'
 import * as utils from './libs/utils'
 
 export async function activate(context: vscode.ExtensionContext) {
     utils.readConfig()
     utils.checkForOutputOption(context)
-    deletedContent.registerCommentController(context)
+    quickDiff.register(context)
 
     vscode.workspace.onDidChangeConfiguration(async(e) => {
         if (e.affectsConfiguration(utils.PKG_NAME)) {
             utils.readConfig()
             utils.checkForOutputOption(context)
 
-            await decorations.refreshDeletedContent()
             await decorations.visibleEditors(true)
         }
     })

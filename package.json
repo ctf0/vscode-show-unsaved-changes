@@ -2,7 +2,7 @@
     "name": "show-unsaved-changes",
     "displayName": "Show Unsaved Changes",
     "description": "show unsaved changes for document in gutter (kinda like git)",
-    "version": "0.3.9",
+    "version": "1.0.0",
     "publisher": "ctf0",
     "repository": "https://github.com/ctf0/vscode-show-unsaved-changes",
     "engines": {
@@ -100,15 +100,6 @@
                     "default": false,
                     "markdownDescription": "show changes diff in output panel"
                 },
-                "showUnsavedChanges.showDeletedContent": {
-                    "type": "string",
-                    "enum": [
-                        "off",
-                        "comments"
-                    ],
-                    "default": "comments",
-                    "markdownDescription": "show deleted lines content:\n- `comments` = inline comment thread with the deleted lines (updated automatically while typing)\n- `off` = disabled"
-                },
                 "showUnsavedChanges.debounceTime": {
                     "type": "number",
                     "default": 500,
@@ -176,14 +167,7 @@
                     "description": "decoration styles"
                 }
             }
-        },
-        "keybindings": [
-            {
-                "key": "escape",
-                "command": "workbench.action.collapseAllComments",
-                "when": "commentWidgetVisible"
-            }
-        ]
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run esbuild-base -- --pure:console.log --minify",

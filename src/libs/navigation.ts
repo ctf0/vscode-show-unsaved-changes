@@ -60,7 +60,7 @@ function getLineNumbersList(fileName: string) {
             ...ranges.change.map((range: vscode.Range) => range.start.line),
         )
 
-        return [...new Set(lineNumbers.sort())]
+        return [...new Set(lineNumbers.sort((a, b) => a - b))]
     }
 
     return []
