@@ -27,6 +27,14 @@ export async function activate(context: vscode.ExtensionContext) {
         // commands
         vscode.commands.registerCommand('showUnsavedChanges.goToPrevChange', () => navigation.getNearestChangedLineNumber(-1)),
         vscode.commands.registerCommand('showUnsavedChanges.goToNextChange', () => navigation.getNearestChangedLineNumber(1)),
+        vscode.commands.registerCommand('showUnsavedChanges.clearDocIndicators', async() => {
+            const {document} = vscode.window.activeTextEditor ?? {}
+
+            if (document && state.hasContentFor(document.fileName)) {
+                await decorations.resetAll(document.fileName)
+                await decorations.initDecorator(document)
+            }
+        }),
 
         // on close
         vscode.workspace.onDidCloseTextDocument(async(document: vscode.TextDocument) => {
@@ -41,7 +49,13 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidSaveTextDocument(async(document: vscode.TextDocument) => {
             const {fileName} = document
 
-            if (state.hasContentFor(fileName) && utils.config.clearOnSave) {
+            if (!state.hasContentFor(fileName)) {
+                await decorations.initDecorator(document)
+
+                return
+            }
+
+            if (utils.config.clearOnSave) {
                 await decorations.resetAll(fileName)
                 await decorations.initDecorator(document)
             }

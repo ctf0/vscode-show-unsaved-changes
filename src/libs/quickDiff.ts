@@ -54,16 +54,17 @@ async function provideOriginalResource(uri: vscode.Uri): Promise<vscode.Uri | nu
     const cwd = path.dirname(uri.fsPath)
     const {exitCode} = await execa(utils.config.gitPath, ['check-ignore', '-q', uri.fsPath], {reject: false, cwd})
 
-    // not ignored → tracked files go to native git, untracked new files to us
+    // not ignored → native git can only diff files that exist in HEAD
+    // (tracked); staged-new and untracked files have no HEAD blob
     if (exitCode === 1) {
-        const {exitCode: isTracked} = await execa(utils.config.gitPath, ['ls-files', '--error-unmatch', uri.fsPath], {reject: false, cwd})
+        const {stdout} = await execa(utils.config.gitPath, ['ls-tree', 'HEAD', '--', uri.fsPath], {reject: false, cwd})
 
-        if (isTracked === 0) {
+        if (stdout.trim() !== '') {
             return null
         }
     }
 
-    // exit 0 (ignored) or error (not a git repo / no git) → we handle
+    // exit 0 (ignored), staged-new, untracked, or error (not a git repo / no git) → we handle
     return vscode.Uri.parse(`${SCHEME}:${encodeURIComponent(uri.fsPath)}`)
 }
 

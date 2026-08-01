@@ -2,7 +2,7 @@
     "name": "show-unsaved-changes",
     "displayName": "Show Unsaved Changes",
     "description": "show unsaved changes for document in gutter (kinda like git)",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "publisher": "ctf0",
     "repository": "https://github.com/ctf0/vscode-show-unsaved-changes",
     "engines": {
@@ -28,6 +28,12 @@
                 "title": "Go To Next Change",
                 "category": "Show Unsaved Changes",
                 "icon": "$(chevron-down)"
+            },
+            {
+                "command": "showUnsavedChanges.clearDocIndicators",
+                "title": "Clear Diff Indicators",
+                "category": "Show Unsaved Changes",
+                "icon": "$(clear-all)"
             }
         ],
         "submenus": [
@@ -44,6 +50,10 @@
                 },
                 {
                     "command": "showUnsavedChanges.goToNextChange",
+                    "when": "sucFilePath"
+                },
+                {
+                    "command": "showUnsavedChanges.clearDocIndicators",
                     "when": "sucFilePath"
                 }
             ],
@@ -63,6 +73,11 @@
                     "command": "showUnsavedChanges.goToNextChange",
                     "when": "sucFilePath",
                     "group": "navigation"
+                },
+                {
+                    "command": "showUnsavedChanges.clearDocIndicators",
+                    "when": "sucFilePath",
+                    "group": "navigation"
                 }
             ],
             "suc.editor.context": [
@@ -72,6 +87,10 @@
                 },
                 {
                     "command": "showUnsavedChanges.goToNextChange",
+                    "when": "sucFilePath"
+                },
+                {
+                    "command": "showUnsavedChanges.clearDocIndicators",
                     "when": "sucFilePath"
                 }
             ]
