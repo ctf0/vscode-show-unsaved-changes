@@ -2,6 +2,7 @@ import hexToRgba from 'hex-to-rgba'
 import * as vscode from 'vscode'
 import * as compare from './Compare'
 import * as navigation from './navigation'
+import * as quickDiff from './quickDiff'
 import * as state from './state'
 import * as utils from './utils'
 
@@ -119,6 +120,11 @@ async function updateDecors(document: vscode.TextDocument) {
     const {fileName} = document
 
     try {
+        // native scm owns this file → ext does nothing (no ranges, no diff output)
+        if (!(await quickDiff.isExtTracked(document.uri))) {
+            return
+        }
+
         let decor = state.getDecorRangesFor(fileName)
 
         if (!decor) {
@@ -129,6 +135,7 @@ async function updateDecors(document: vscode.TextDocument) {
         const results: compare.ContentComparisonResults[] = await compare.compareStreams(
             snapshot.content,
             document.getText(),
+            document.uri.scheme,
         )
 
         const add: vscode.Range[] = []

@@ -44,24 +44,49 @@ function getSnapshotContent(uri: vscode.Uri): string {
 /* QuickDiff ----------------------------------------------------------------- */
 // replaces the custom gutter for file scheme docs inside a git repo;
 // native git handles tracked files, we handle the rest
+async function isTrackedByNativeGit(fsPath: string): Promise<boolean> {
+    // run git from the file's dir so it walks up to the enclosing repo;
+    // the extension host cwd is not guaranteed to be inside the repo
+    const cwd = path.dirname(fsPath)
+    const {exitCode} = await execa(utils.config.gitPath, ['check-ignore', '-q', fsPath], {reject: false, cwd})
+
+    // ignored (0) or not a repo (128) → nothing native to track against
+    if (exitCode !== 1) {
+        return false
+    }
+
+    // native git can only diff files that exist in HEAD (tracked);
+    // staged-new and untracked files have no HEAD blob → we handle
+    const {stdout} = await execa(utils.config.gitPath, ['ls-tree', 'HEAD', '--', fsPath], {reject: false, cwd})
+
+    return stdout.trim() !== ''
+}
+
+// true when the ext (not the native git scm) is the one tracking the changes
+export async function isExtTracked(uri: vscode.Uri): Promise<boolean> {
+    if (!state.hasContentFor(uri.fsPath)) {
+        return false
+    }
+
+    if (uri.scheme !== 'file') {
+        return true
+    }
+
+    try {
+        return !(await isTrackedByNativeGit(uri.fsPath))
+    } catch {
+        // git unavailable → nothing native to track against
+        return true
+    }
+}
+
 async function provideOriginalResource(uri: vscode.Uri): Promise<vscode.Uri | null> {
     if (uri.scheme !== 'file' || !state.hasContentFor(uri.fsPath)) {
         return null
     }
 
-    // run git from the file's dir so it walks up to the enclosing repo;
-    // the extension host cwd is not guaranteed to be inside the repo
-    const cwd = path.dirname(uri.fsPath)
-    const {exitCode} = await execa(utils.config.gitPath, ['check-ignore', '-q', uri.fsPath], {reject: false, cwd})
-
-    // not ignored → native git can only diff files that exist in HEAD
-    // (tracked); staged-new and untracked files have no HEAD blob
-    if (exitCode === 1) {
-        const {stdout} = await execa(utils.config.gitPath, ['ls-tree', 'HEAD', '--', uri.fsPath], {reject: false, cwd})
-
-        if (stdout.trim() !== '') {
-            return null
-        }
+    if (await isTrackedByNativeGit(uri.fsPath)) {
+        return null
     }
 
     // exit 0 (ignored), staged-new, untracked, or error (not a git repo / no git) → we handle

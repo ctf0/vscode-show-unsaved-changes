@@ -19,7 +19,7 @@ we now use native git diff which give us much more flexibility in showing the ch
 - non-`file` docs (`untitled`, `vscode-userdata`, ...) "use the custom gutter & overview ruler".
 - commands to jump between changes (`Go To Prev/Next Change`)
 - clear the current doc indicators (`Clear Diff Indicators`)
-    - incase you want to keep `showUnsavedChanges.clearOnSave: off` but want to clear the noise.
+    - incase you want to keep `showUnsavedChanges.clearOnSave: off` but the file changes became too noisy.
 
 ## Features
 

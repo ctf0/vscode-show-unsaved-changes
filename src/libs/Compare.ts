@@ -14,7 +14,11 @@ export type ContentComparisonResults = {
     del            : boolean
 }
 
-export async function compareStreams(_old: string, _new: string): Promise<ContentComparisonResults[]> {
+export async function compareStreams(_old: string, _new: string, scheme: string): Promise<ContentComparisonResults[]> {
+    if (_old === _new) {
+        return []
+    }
+
     return new Promise(async(resolve, reject) => {
         const results: ContentComparisonResults[] = []
 
@@ -25,12 +29,21 @@ export async function compareStreams(_old: string, _new: string): Promise<Conten
 
         try {
             let data = await runDiffCmnd(file1.path, file2.path, _old.trim() == '')
-            data = data.match(/^diff --git(.*\n?)+/gm)[0]
+            const diffMatch = data.match(/^diff --git(.*\n?)+/gm)
+
+            if (diffMatch === null) {
+                reject(false)
+
+                return
+            }
+
+            data = diffMatch[0]
 
             const outputChannel = utils.outputController
 
             if (outputChannel !== undefined) {
                 outputChannel.clear()
+                outputChannel.appendLine(`scheme: ${scheme}`)
                 outputChannel.appendLine(data)
             }
 
@@ -96,20 +109,20 @@ export async function compareStreams(_old: string, _new: string): Promise<Conten
 }
 
 async function runDiffCmnd(path1: string, path2: string, isEmptyFile = false) {
-    try {
-        const args = [
-            'diff',
-            '--no-index',
-            '--no-renames',
-            `--unified=${isEmptyFile ? 1 : 0}`,
-            path1,
-            path2,
-        ]
+    const args = [
+        'diff',
+        '--no-index',
+        '--no-renames',
+        `--unified=${isEmptyFile ? 1 : 0}`,
+        path1,
+        path2,
+    ]
 
+    try {
         const {stdout} = await execa(
             utils.config.gitPath,
             args,
-            {shell: utils.config.terminalShellPath || vscode.env.shell},
+            {reject: false, shell: utils.config.terminalShellPath || vscode.env.shell},
         )
 
         return stdout

@@ -68,7 +68,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
                 if (utils.config.schemeTypes.includes(document.uri.scheme) && !decorations.isIgnored(document)) {
                     await decorations.reApplyDecors(editor)
-                    await navigation.setContext(!state.contentNotChanged(document))
+                    await navigation.setContext(
+                        !state.contentNotChanged(document) && await quickDiff.isExtTracked(document.uri),
+                    )
                 }
             }
         }),
