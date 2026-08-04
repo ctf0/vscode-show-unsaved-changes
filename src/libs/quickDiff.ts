@@ -5,6 +5,7 @@ import * as state from './state'
 import * as utils from './utils'
 
 const SCHEME = 'suc-snapshot'
+const SCM_SCHEMEs = ['file', 'vscode-userdata']
 
 /* Snapshot Provider -------------------------------------------------------- */
 // read-only provider serving the last unsaved snapshot, so the built-in
@@ -15,22 +16,34 @@ const snapshotProvider: vscode.FileSystemProvider = {
         const content = getSnapshotContent(uri)
 
         return {
-            type : vscode.FileType.File,
-            ctime: 0,
-            mtime: 0,
-            size : Buffer.byteLength(content, 'utf8'),
+            type  : vscode.FileType.File,
+            ctime : 0,
+            mtime : 0,
+            size  : Buffer.byteLength(content, 'utf8'),
         }
     },
     readFile(uri: vscode.Uri) {
         return Buffer.from(getSnapshotContent(uri), 'utf8')
     },
-    watch() { return new vscode.Disposable(() => {}) },
+    watch() {
+        return new vscode.Disposable(() => {})
+    },
     // read-only — mutations are not supported
-    readDirectory() { return [] },
-    createDirectory() { throw vscode.FileSystemError.NoPermissions() },
-    writeFile() { throw vscode.FileSystemError.NoPermissions() },
-    delete() { throw vscode.FileSystemError.NoPermissions() },
-    rename() { throw vscode.FileSystemError.NoPermissions() },
+    readDirectory() {
+        return []
+    },
+    createDirectory() {
+        throw vscode.FileSystemError.NoPermissions()
+    },
+    writeFile() {
+        throw vscode.FileSystemError.NoPermissions()
+    },
+    delete() {
+        throw vscode.FileSystemError.NoPermissions()
+    },
+    rename() {
+        throw vscode.FileSystemError.NoPermissions()
+    },
 }
 
 function getSnapshotContent(uri: vscode.Uri): string {
@@ -81,7 +94,7 @@ export async function isExtTracked(uri: vscode.Uri): Promise<boolean> {
 }
 
 async function provideOriginalResource(uri: vscode.Uri): Promise<vscode.Uri | null> {
-    if (uri.scheme !== 'file' || !state.hasContentFor(uri.fsPath)) {
+    if (!SCM_SCHEMEs.includes(uri.scheme) || !state.hasContentFor(uri.fsPath)) {
         return null
     }
 

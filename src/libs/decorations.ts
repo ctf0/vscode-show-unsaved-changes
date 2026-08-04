@@ -1,6 +1,7 @@
 import hexToRgba from 'hex-to-rgba'
 import * as vscode from 'vscode'
 import * as compare from './Compare'
+import * as deletedContent from './deletedContent'
 import * as navigation from './navigation'
 import * as quickDiff from './quickDiff'
 import * as state from './state'
@@ -91,9 +92,7 @@ export function reApplyDecors(editor: vscode.TextEditor | undefined, updateDecor
         return
     }
 
-    // file scheme is rendered by native quickdiff (git) — keep the state
-    // bookkeeping above (ranges, snapshots, navigation) but skip the visuals
-    if (document.uri.scheme === 'file') {
+    if (document.uri.scheme !== 'untitled') {
         return
     }
 
@@ -137,6 +136,16 @@ async function updateDecors(document: vscode.TextDocument) {
             document.getText(),
             document.uri.scheme,
         )
+
+        if (document.uri.scheme === 'untitled') {
+            deletedContent.storeDeletedLines(fileName, results, document.lineCount)
+
+            try {
+                await deletedContent.updateCommentThreads(document)
+            } catch (error) {
+                // console.error(error);
+            }
+        }
 
         const add: vscode.Range[] = []
         const del: vscode.DecorationOptions[] = []
@@ -214,6 +223,10 @@ export async function resetAll(docFilename: string): Promise<void> {
     if (content) {
         state.removeDocumentContent(content)
     }
+
+    deletedContent.disposeThreadsFor(docFilename)
+    state.deletedLines.delete(docFilename)
+    state.deletedAt.delete(docFilename)
 }
 
 export async function visibleEditors(updateDecors: boolean = false) {

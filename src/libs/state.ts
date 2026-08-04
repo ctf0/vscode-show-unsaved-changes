@@ -5,6 +5,10 @@ import * as utils from './utils'
 const decorRanges: utils.DecorRange[] = []
 const documentsContent: utils.DocumentContent[] = []
 
+export const commentThreads = new Map<string, vscode.CommentThread[]>()
+export const deletedLines = new Map<string, Map<number, string[]>>()
+export const deletedAt = new Map<string, string>()
+
 /* Mutations ---------------------------------------------------------------- */
 export function addDecorRange(decor: utils.DecorRange) {
     decorRanges.push(decor)
