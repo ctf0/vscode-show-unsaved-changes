@@ -151,13 +151,15 @@ async function updateDecors(document: vscode.TextDocument) {
         const del: vscode.DecorationOptions[] = []
         const change: vscode.Range[] = []
         const delAnchors = new Set<number>()
+        const changeLines = new Set(results.filter((result) => result.change).map((result) => result.lineNumber))
 
         // ranges
         for (const result of results) {
             const lineNumber = result.lineNumber
             const range = new vscode.Range(lineNumber, 0, lineNumber, 0)
 
-            if (result.del == true) {
+            // a line that is both a deletion anchor and a change shows as change
+            if (result.del == true && !changeLines.has(lineNumber)) {
                 const anchor = Math.max(0, Math.min(lineNumber, document.lineCount - 1))
 
                 if (!delAnchors.has(anchor)) {
