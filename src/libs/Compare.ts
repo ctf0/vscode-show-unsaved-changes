@@ -42,41 +42,76 @@ export async function compareStreams(_old: string, _new: string): Promise<Conten
                         // console.log(chunk);
                         const changes: any = chunk.changes
                         const lineNumber = chunk.toFileRange.start
-                        const isSingleDeletedLine = changes.length == 1 && changes[0].type == 'DeletedLine'
 
                         for (let i = 0; i < changes.length; i++) {
                             const change = changes[i]
-                            const nextChange = changes[i + 1]
-                            const isChange = change.type == 'DeletedLine' && nextChange && nextChange.type == 'AddedLine'
 
-                            if (isChange) {
-                                results.push({
-                                    lineNumber : lineNumber - 1,
-                                    lineValue  : change.content,
-                                    add        : false,
-                                    change     : true,
-                                    del        : false,
-                                })
-                                i++
-                            } else {
-                                if (change.type == 'AddedLine') {
+                            if (change.type == 'DeletedLine') {
+                                let runEnd = i
+
+                                while (runEnd < changes.length && changes[runEnd].type == 'DeletedLine') {
+                                    runEnd++
+                                }
+
+                                // deleted lines paired with added lines = replaced
+                                // content ("change") → no del entries, no comment thread
+                                const followedByAddition = changes[runEnd]?.type == 'AddedLine'
+
+                                if (followedByAddition) {
+                                    let addEnd = runEnd
+
+                                    while (addEnd < changes.length && changes[addEnd].type == 'AddedLine') {
+                                        addEnd++
+                                    }
+
+                                    // deleted lines with no matching addition
+                                    // (more deletions than additions) stay pure deletions
+                                    const pureDelCount = runEnd - i - (addEnd - runEnd)
+
+                                    for (let k = i; k < i + Math.max(0, pureDelCount); k++) {
+                                        results.push({
+                                            lineNumber    : lineNumber - 1,
+                                            oldLineNumber : changes[k].lineBefore - 1,
+                                            lineValue     : changes[k].content,
+                                            add           : false,
+                                            change        : false,
+                                            del           : true,
+                                        })
+                                    }
+
                                     results.push({
-                                        lineNumber : change.lineAfter - 1,
-                                        lineValue  : change.content,
-                                        add        : true,
-                                        change     : false,
+                                        lineNumber : lineNumber - 1,
+                                        lineValue  : changes[runEnd - 1].content,
+                                        add        : false,
+                                        change     : true,
                                         del        : false,
                                     })
+                                    i = runEnd // first added line is covered by the change marker above
                                 } else {
-                                    results.push({
-                                        lineNumber,
-                                        oldLineNumber : isSingleDeletedLine ? lineNumber : change.lineBefore - 1,
-                                        lineValue     : change.content,
-                                        add           : false,
-                                        change        : false,
-                                        del           : true,
-                                    })
+                                    // pure deletion → del entries (gutter red bar + comment thread)
+                                    const isSingleDeletedLine = runEnd - i === 1
+
+                                    for (let k = i; k < runEnd; k++) {
+                                        results.push({
+                                            lineNumber,
+                                            oldLineNumber : isSingleDeletedLine ? lineNumber : changes[k].lineBefore - 1,
+                                            lineValue     : changes[k].content,
+                                            add           : false,
+                                            change        : false,
+                                            del           : true,
+                                        })
+                                    }
+
+                                    i = runEnd - 1
                                 }
+                            } else if (change.type == 'AddedLine') {
+                                results.push({
+                                    lineNumber : change.lineAfter - 1,
+                                    lineValue  : change.content,
+                                    add        : true,
+                                    change     : false,
+                                    del        : false,
+                                })
                             }
                         }
                     }
