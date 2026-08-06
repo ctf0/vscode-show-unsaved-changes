@@ -70,6 +70,8 @@ export function initDecorator(document: vscode.TextDocument): void {
             lineCount : document.lineCount,
         },
     })
+
+    quickDiff.notifySnapshotChanged(fileName)
 }
 
 export function reApplyDecors(editor: vscode.TextEditor | undefined, updateDecors: boolean = false, decor?: utils.DecorRange): void {

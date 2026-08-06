@@ -7,18 +7,43 @@ import * as utils from './utils'
 const SCHEME = 'suc-snapshot'
 const SCM_SCHEMEs = ['file', 'vscode-userdata']
 
+function snapshotUri(fsPath: string): vscode.Uri {
+    return vscode.Uri.parse(`${SCHEME}:${encodeURIComponent(fsPath)}`)
+}
+
+// content-derived mtime so the etag changes when the snapshot content changes;
+// otherwise VS Code would treat a same-size snapshot as "not modified" and
+// skip reloading the original model in the quick diff gutter
+function contentHash(content: string): number {
+    let hash = 5381
+
+    for (let i = 0; i < content.length; i++) {
+        hash = ((hash << 5) + hash) ^ content.charCodeAt(i)
+    }
+
+    return hash >>> 0
+}
+
 /* Snapshot Provider -------------------------------------------------------- */
 // read-only provider serving the last unsaved snapshot, so the built-in
 // diff editor (peek + gutter) can compare against it without temp files
+const onDidChangeFileEmitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>()
+
+// notify VS Code that the snapshot for a file changed so the native quick diff
+// gutter re-reads it (e.g. after "Clear Diff Indicators" re-baselines the snapshot)
+export function notifySnapshotChanged(fsPath: string): void {
+    onDidChangeFileEmitter.fire([{type: vscode.FileChangeType.Changed, uri: snapshotUri(fsPath)}])
+}
+
 const snapshotProvider: vscode.FileSystemProvider = {
-    onDidChangeFile : new vscode.EventEmitter<vscode.FileChangeEvent[]>().event,
+    onDidChangeFile : onDidChangeFileEmitter.event,
     stat(uri: vscode.Uri) {
         const content = getSnapshotContent(uri)
 
         return {
             type  : vscode.FileType.File,
             ctime : 0,
-            mtime : 0,
+            mtime : contentHash(content),
             size  : Buffer.byteLength(content, 'utf8'),
         }
     },
@@ -103,7 +128,7 @@ async function provideOriginalResource(uri: vscode.Uri): Promise<vscode.Uri | nu
     }
 
     // exit 0 (ignored), staged-new, untracked, or error (not a git repo / no git) → we handle
-    return vscode.Uri.parse(`${SCHEME}:${encodeURIComponent(uri.fsPath)}`)
+    return snapshotUri(uri.fsPath)
 }
 
 export function register(context: vscode.ExtensionContext) {
